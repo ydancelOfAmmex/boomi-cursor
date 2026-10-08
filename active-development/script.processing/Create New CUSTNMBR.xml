@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?><bns:Component xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:bns="http://api.platform.boomi.com/" folderFullPath="AMMEX Corporation/Archive_07_14_2025/(SDLC) Ammex Corporation/#Production/Account/Customer/New Accounts\Customers/GP Customer Creation/Assets" componentId="dca9f25e-7bf4-4ae1-97b5-5a11b65d1a5a" version="37" name="Create New CUSTNMBR" type="script.processing" createdDate="2021-01-20T19:24:50Z" createdBy="ydancel@ammex.com" modifiedDate="2024-07-10T23:28:58Z" modifiedBy="vhuerto@ammex.com" deleted="false" currentVersion="true" folderName="Assets" folderId="Rjo2ODgxNjEx" branchName="main" branchId="Qjo0MDU3Ng"><bns:encryptedValues/><bns:description></bns:description><bns:object><ProcessingScript xmlns="" language="groovy2" useCache="true"><script>import java.util.Properties;
+import java.io.InputStream;
+import com.boomi.execution.ExecutionUtil;
+
+logger = ExecutionUtil.getBaseLogger();
+
+for( int i = 0; i &lt; dataContext.getDataCount(); i++ ) {
+    InputStream is = dataContext.getStream(i);
+    Properties props = dataContext.getProperties(i);
+    
+    def accountPrefix = props.getProperty("document.dynamic.userdefined.DDP-ACCOUNT_NAME_PREFIX");
+    def lastAccount = props.getProperty("document.dynamic.userdefined.DDP-LAST_ACCOUNT_LIKE_PREFIX");
+    logger.info("LastAccount: " + lastAccount)
+    def m = lastAccount =~ /^[a-zA-Z0-9]+(\d{4,4})$/
+    def seq = '0001'
+    def newAccountNumber = ''
+    
+    if(m.find()) {
+        seq = Integer.parseInt(m.findAll().first()[1])
+        logger.info(m.findAll().first().toString())
+        logger.info(seq.toString())
+        seq++
+        seq = seq.toString().padLeft(4, '0')
+    }
+    
+    props.setProperty("document.dynamic.userdefined.DDP-NEW_CUSTNMBR", accountPrefix + seq);
+    logger.info("New CUSTNMBR: " + accountPrefix + seq);
+    dataContext.storeStream(is, props);
+}</script></ProcessingScript></bns:object></bns:Component>

@@ -1,0 +1,138 @@
+name: Boomi CI/CD
+
+on:
+  pull_request:
+    paths:
+      - "active-development/**"
+      - "ci/**"
+      - ".github/workflows/boomi.yml"
+  push:
+    branches: [main]
+    paths:
+      - "active-development/**"
+      - "ci/**"
+      - ".github/workflows/boomi.yml"
+  schedule:
+    - cron: "0 13 * * *"
+  workflow_dispatch:
+    inputs:
+      action:
+        description: What to run
+        type: choice
+        options:
+          - deploy
+          - pull
+        default: deploy
+      target:
+        description: Boomi environment to deploy
+        type: choice
+        options:
+          - test
+          - production
+        default: test
+      base_ref:
+        description: Git revision to diff against (empty uses the parent of HEAD)
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate component XML
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Validate components
+        run: python ci/validate_components.py
+
+  deploy:
+    name: Deploy to Boomi
+    needs: validate
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.action != 'pull') ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main' && !contains(github.event.head_commit.message, '[boomi-pull]'))
+    runs-on: ubuntu-latest
+    environment: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.target == 'production' && 'boomi-production' || 'boomi-test' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Require platform credentials
+        env:
+          BOOMI_API_URL: ${{ secrets.BOOMI_API_URL }}
+          BOOMI_USERNAME: ${{ secrets.BOOMI_USERNAME }}
+          BOOMI_API_TOKEN: ${{ secrets.BOOMI_API_TOKEN }}
+          BOOMI_ACCOUNT_ID: ${{ secrets.BOOMI_ACCOUNT_ID }}
+          BOOMI_ENVIRONMENT_ID: ${{ secrets.BOOMI_ENVIRONMENT_ID }}
+        run: python ci/write_env.py
+      - name: Resolve changed range
+        id: range
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            base="${{ github.event.inputs.base_ref }}"
+            if [ -z "$base" ]; then
+              base="$(git rev-parse HEAD^)"
+            fi
+          else
+            base="${{ github.event.before }}"
+            if [ "$base" = "0000000000000000000000000000000000000000" ]; then
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+              echo "First push of this branch has no parent commit. Run the workflow manually with base_ref."
+              exit 0
+            fi
+          fi
+          echo "base=$base" >> "$GITHUB_OUTPUT"
+          echo "head=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+      - name: Push and deploy changed components
+        if: steps.range.outputs.skip != 'true'
+        env:
+          BOOMI_DEPLOY_NOTES: "${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}"
+        run: bash ci/deploy.sh --base "${{ steps.range.outputs.base }}" --head "${{ steps.range.outputs.head }}"
+
+  pull:
+    name: Pull components from Boomi
+    if: >-
+      github.event_name == 'schedule' ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'pull')
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    permissions:
+      contents: write
+    concurrency:
+      group: boomi-pull
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Require platform credentials
+        env:
+          BOOMI_API_URL: ${{ secrets.BOOMI_API_URL }}
+          BOOMI_USERNAME: ${{ secrets.BOOMI_USERNAME }}
+          BOOMI_API_TOKEN: ${{ secrets.BOOMI_API_TOKEN }}
+          BOOMI_ACCOUNT_ID: ${{ secrets.BOOMI_ACCOUNT_ID }}
+        run: python ci/write_env.py --api-only
+      - name: Download current components
+        run: python ci/pull_account.py
+      - name: Commit downloaded components
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add active-development ci/pull-index.json
+          if git diff --cached --quiet; then
+            echo "No component changes."
+            exit 0
+          fi
+          git commit -m "sync: pull components from Boomi [boomi-pull]"
+          git push

@@ -1,0 +1,440 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bns:Component xmlns:bns="http://api.platform.boomi.com/"
+               xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+               componentId="eb78a5e6-1b0e-4c0a-8d34-4b6e6058fb54"
+               name="[FWK] (Sub) Handle Integration Error"
+               type="process"
+               folderId="Rjo4ODgyNTY0">
+  <bns:encryptedValues/>
+  <bns:description>Reusable error handler. Call from a Catch path or after a business failure. Optional DDPs, defaults in parentheses: DDP_FWK_ERROR_MESSAGE (Try/Catch message), DDP_FWK_ERROR_TYPE (TECHNICAL), DDP_FWK_ERROR_CODE (UNCLASSIFIED, then keyword classification), DDP_FWK_ERROR_SOURCE (unspecified), DDP_FWK_CORRELATION_ID (empty), DDP_FWK_HTTP_STATUS (400 for BUSINESS or CLIENT_ERROR, 504 for HTTP_TIMEOUT, 503 for TRANSIENT, else 500), DDP_FWK_RAISE_EVENT (true), DDP_FWK_FAIL_DOCUMENT (true; set false to return JSON on shape12), DDP_FWK_STOP_PROCESS (false; set true with fail to stop the whole execution). Use lowercase true or false. Profile: [FWK] Integration Error JSON. Also writes DPP_FWK_LAST_ERROR_MESSAGE, DPP_FWK_LAST_ERROR_CODE, DPP_FWK_LAST_ERROR_TYPE, DPP_FWK_LAST_ERROR_SOURCE, DPP_FWK_LAST_HTTP_STATUS, DPP_FWK_LAST_CORRELATION_ID, DPP_FWK_LAST_EXECUTION_ID. The call replaces the document with the error JSON. | built with boomi-companion v1.0.76</bns:description>
+  <bns:object>
+    <process allowSimultaneous="false" enableUserLog="false" processLogOnErrorOnly="false" purgeDataImmediately="false" stopProcessingIfZeroDocuments="true" updateRunDates="false" workload="general">
+      <shapes>
+        <shape image="start" name="shape1" shapetype="start" userlabel="" x="48.0" y="48.0">
+          <configuration>
+            <passthroughaction/>
+          </configuration>
+          <dragpoints>
+            <dragpoint name="shape1.dragpoint1" toShape="shape2" x="256.0" y="56.0"/>
+          </dragpoints>
+        </shape>
+        <shape image="documentproperties_icon" name="shape2" shapetype="documentproperties" userlabel="Apply error defaults" x="272.0" y="48.0">
+          <configuration>
+            <documentproperties>
+              <documentproperty defaultValue="" isDynamicCredential="false" isTradingPartner="false" name="Dynamic Document Property - DDP_FWK_ERROR_TYPE" persist="false" propertyId="dynamicdocument.DDP_FWK_ERROR_TYPE" shouldEncrypt="false">
+                <sourcevalues>
+                  <parametervalue key="0" valueType="track">
+                    <trackparameter defaultValue="TECHNICAL" propertyId="dynamicdocument.DDP_FWK_ERROR_TYPE" propertyName="Dynamic Document Property - DDP_FWK_ERROR_TYPE"/>
+                  </parametervalue>
+                </sourcevalues>
+              </documentproperty>
+              <documentproperty defaultValue="" isDynamicCredential="false" isTradingPartner="false" name="Dynamic Document Property - DDP_FWK_ERROR_CODE" persist="false" propertyId="dynamicdocument.DDP_FWK_ERROR_CODE" shouldEncrypt="false">
+                <sourcevalues>
+                  <parametervalue key="0" valueType="track">
+                    <trackparameter defaultValue="UNCLASSIFIED" propertyId="dynamicdocument.DDP_FWK_ERROR_CODE" propertyName="Dynamic Document Property - DDP_FWK_ERROR_CODE"/>
+                  </parametervalue>
+                </sourcevalues>
+              </documentproperty>
+              <documentproperty defaultValue="" isDynamicCredential="false" isTradingPartner="false" name="Dynamic Document Property - DDP_FWK_ERROR_SOURCE" persist="false" propertyId="dynamicdocument.DDP_FWK_ERROR_SOURCE" shouldEncrypt="false">
+                <sourcevalues>
+                  <parametervalue key="0" valueType="track">
+                    <trackparameter defaultValue="unspecified" propertyId="dynamicdocument.DDP_FWK_ERROR_SOURCE" propertyName="Dynamic Document Property - DDP_FWK_ERROR_SOURCE"/>
+                  </parametervalue>
+                </sourcevalues>
+              </documentproperty>
+              <documentproperty defaultValue="" isDynamicCredential="false" isTradingPartner="false" name="Dynamic Document Property - DDP_FWK_RAISE_EVENT" persist="false" propertyId="dynamicdocument.DDP_FWK_RAISE_EVENT" shouldEncrypt="false">
+                <sourcevalues>
+                  <parametervalue key="0" valueType="track">
+                    <trackparameter defaultValue="true" propertyId="dynamicdocument.DDP_FWK_RAISE_EVENT" propertyName="Dynamic Document Property - DDP_FWK_RAISE_EVENT"/>
+                  </parametervalue>
+                </sourcevalues>
+              </documentproperty>
+              <documentproperty defaultValue="" isDynamicCredential="false" isTradingPartner="false" name="Dynamic Document Property - DDP_FWK_FAIL_DOCUMENT" persist="false" propertyId="dynamicdocument.DDP_FWK_FAIL_DOCUMENT" shouldEncrypt="false">
+                <sourcevalues>
+                  <parametervalue key="0" valueType="track">
+                    <trackparameter defaultValue="true" propertyId="dynamicdocument.DDP_FWK_FAIL_DOCUMENT" propertyName="Dynamic Document Property - DDP_FWK_FAIL_DOCUMENT"/>
+                  </parametervalue>
+                </sourcevalues>
+              </documentproperty>
+              <documentproperty defaultValue="" isDynamicCredential="false" isTradingPartner="false" name="Dynamic Document Property - DDP_FWK_STOP_PROCESS" persist="false" propertyId="dynamicdocument.DDP_FWK_STOP_PROCESS" shouldEncrypt="false">
+                <sourcevalues>
+                  <parametervalue key="0" valueType="track">
+                    <trackparameter defaultValue="false" propertyId="dynamicdocument.DDP_FWK_STOP_PROCESS" propertyName="Dynamic Document Property - DDP_FWK_STOP_PROCESS"/>
+                  </parametervalue>
+                </sourcevalues>
+              </documentproperty>
+            </documentproperties>
+          </configuration>
+          <dragpoints>
+            <dragpoint name="shape2.dragpoint1" toShape="shape3" x="480.0" y="56.0"/>
+          </dragpoints>
+        </shape>
+        <shape image="decision_icon" name="shape3" shapetype="decision" userlabel="Error message is blank" x="496.0" y="48.0">
+          <configuration>
+            <decision comparison="equals" name="Error message is blank">
+              <decisionvalue valueType="track">
+                <trackparameter defaultValue="" propertyId="dynamicdocument.DDP_FWK_ERROR_MESSAGE" propertyName="Dynamic Document Property - DDP_FWK_ERROR_MESSAGE"/>
+              </decisionvalue>
+              <decisionvalue valueType="static">
+                <staticparameter staticproperty=""/>
+              </decisionvalue>
+            </decision>
+          </configuration>
+          <dragpoints>
+            <dragpoint identifier="true" name="shape3.dragpoint1" text="True" toShape="shape4" x="704.0" y="56.0"/>
+            <dragpoint identifier="false" name="shape3.dragpoint2" text="False" toShape="shape5" x="704.0" y="280.0"/>
+          </dragpoints>
+        </shape>
+        <shape image="documentproperties_icon" name="shape4" shapetype="documentproperties" userlabel="Copy Try/Catch message" x="720.0" y="48.0">
+          <configuration>
+            <documentproperties>
+              <documentproperty defaultValue="" isDynamicCredential="false" isTradingPartner="false" name="Dynamic Document Property - DDP_FWK_ERROR_MESSAGE" persist="false" propertyId="dynamicdocument.DDP_FWK_ERROR_MESSAGE" shouldEncrypt="false">
+                <sourcevalues>
+                  <parametervalue key="0" valueType="track">
+                    <trackparameter defaultValue="No error message was captured" propertyId="meta.base.catcherrorsmessage" propertyName="Base - Try/Catch Message"/>
+                  </parametervalue>
+                </sourcevalues>
+              </documentproperty>
+            </documentproperties>
+          </configuration>
+          <dragpoints>
+            <dragpoint name="shape4.dragpoint1" toShape="shape6" x="928.0" y="56.0"/>
+          </dragpoints>
+        </shape>
+        <shape image="notify_icon" name="shape5" shapetype="notify" userlabel="Caller supplied message" x="720.0" y="272.0">
+          <configuration>
+            <notify disableEvent="true" enableUserLog="false" perExecution="false" title="Integration error">
+              <notifyMessage>Using caller-supplied error message</notifyMessage>
+              <notifyMessageLevel>INFO</notifyMessageLevel>
+              <notifyParameters/>
+            </notify>
+          </configuration>
+          <dragpoints>
+            <dragpoint name="shape5.dragpoint1" toShape="shape6" x="928.0" y="56.0"/>
+          </dragpoints>
+        </shape>
+        <shape image="documentproperties_icon" name="shape6" shapetype="documentproperties" userlabel="Capture execution context" x="944.0" y="48.0">
+          <configuration>
+            <documentproperties>
+              <documentproperty defaultValue="" isDynamicCredential="false" isTradingPartner="false" name="Dynamic Document Property - DDP_FWK_PROCESS_NAME" persist="false" propertyId="dynamicdocument.DDP_FWK_PROCESS_NAME" shouldEncrypt="false">
+                <sourcevalues>
+                  <parametervalue key="0" valueType="execution">
+                    <executionparameter executionproperty="Process Name"/>
+                  </parametervalue>
+                </sourcevalues>
+              </documentproperty>
+              <documentproperty defaultValue="" isDynamicCredential="false" isTradingPartner="false" name="Dynamic Document Property - DDP_FWK_EXECUTION_ID" persist="false" propertyId="dynamicdocument.DDP_FWK_EXECUTION_ID" shouldEncrypt="false">
+                <sourcevalues>
+                  <parametervalue key="0" valueType="execution">
+                    <executionparameter executionproperty="Execution Id"/>
+                  </parametervalue>
+                </sourcevalues>
+              </documentproperty>
+              <documentproperty defaultValue="" isDynamicCredential="false" isTradingPartner="false" name="Dynamic Document Property - DDP_FWK_ATOM_NAME" persist="false" propertyId="dynamicdocument.DDP_FWK_ATOM_NAME" shouldEncrypt="false">
+                <sourcevalues>
+                  <parametervalue key="0" valueType="execution">
+                    <executionparameter executionproperty="Atom Name"/>
+                  </parametervalue>
+                </sourcevalues>
+              </documentproperty>
+              <documentproperty defaultValue="" isDynamicCredential="false" isTradingPartner="false" name="Dynamic Document Property - DDP_FWK_ERROR_TIMESTAMP" persist="false" propertyId="dynamicdocument.DDP_FWK_ERROR_TIMESTAMP" shouldEncrypt="false">
+                <sourcevalues>
+                  <parametervalue key="0" valueType="date">
+                    <dateparameter dateparametertype="current" datetimemask="yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"/>
+                  </parametervalue>
+                </sourcevalues>
+              </documentproperty>
+              <documentproperty defaultValue="" isDynamicCredential="false" isTradingPartner="false" name="MIME Property - Content-Type" persist="false" propertyId="mime.Content-Type" shouldEncrypt="false">
+                <sourcevalues>
+                  <parametervalue key="0" valueType="static">
+                    <staticparameter staticproperty="application/json"/>
+                  </parametervalue>
+                </sourcevalues>
+              </documentproperty>
+            </documentproperties>
+          </configuration>
+          <dragpoints>
+            <dragpoint name="shape6.dragpoint1" toShape="shape7" x="1152.0" y="56.0"/>
+          </dragpoints>
+        </shape>
+        <shape image="dataprocess_icon" name="shape7" shapetype="dataprocess" userlabel="Build error JSON" x="1168.0" y="48.0">
+          <configuration>
+            <dataprocess>
+              <step index="1" key="1" name="Custom Scripting" processtype="12">
+                <dataprocessscript language="groovy2" useCache="true">
+                  <script><![CDATA[import java.util.Properties;
+import java.io.InputStream;
+import java.io.ByteArrayInputStream;
+import com.boomi.execution.ExecutionUtil;
+
+String jsonEscape(String value) {
+    if (value == null) {
+        return "";
+    }
+    return value.replace("\\", "\\\\").replace("\"", "\\\"").replace("\r", "").replace("\n", "\\n").replace("\t", "\\t");
+}
+
+String text(Properties props, String name, String fallback) {
+    String value = props.getProperty("document.dynamic.userdefined." + name);
+    if (value == null || value.length() == 0) {
+        return fallback;
+    }
+    return value;
+}
+
+for (int i = 0; i < dataContext.getDataCount(); i++) {
+    InputStream is = dataContext.getStream(i);
+    Properties props = dataContext.getProperties(i);
+
+    String type = text(props, "DDP_FWK_ERROR_TYPE", "TECHNICAL");
+    String code = text(props, "DDP_FWK_ERROR_CODE", "UNCLASSIFIED");
+    String source = text(props, "DDP_FWK_ERROR_SOURCE", "unspecified");
+    String message = text(props, "DDP_FWK_ERROR_MESSAGE", "No error message was captured");
+    String processName = text(props, "DDP_FWK_PROCESS_NAME", "");
+    String executionId = text(props, "DDP_FWK_EXECUTION_ID", "");
+    String atomName = text(props, "DDP_FWK_ATOM_NAME", "");
+    String timestamp = text(props, "DDP_FWK_ERROR_TIMESTAMP", "");
+    String correlationId = text(props, "DDP_FWK_CORRELATION_ID", "");
+    String httpStatus = text(props, "DDP_FWK_HTTP_STATUS", "");
+
+    if ("UNCLASSIFIED".equals(code)) {
+        String lower = message.toLowerCase();
+        if (lower.indexOf("timeout") >= 0 || lower.indexOf("timed out") >= 0) {
+            code = "HTTP_TIMEOUT";
+        } else if (lower.indexOf("code 429") >= 0 || lower.indexOf("code 502") >= 0 || lower.indexOf("code 503") >= 0 || lower.indexOf("code 504") >= 0) {
+            code = "TRANSIENT";
+        } else if (lower.indexOf("code 400") >= 0 || lower.indexOf("code 401") >= 0 || lower.indexOf("code 403") >= 0 || lower.indexOf("code 404") >= 0) {
+            code = "CLIENT_ERROR";
+        }
+    }
+
+    if (httpStatus.length() == 0) {
+        if ("BUSINESS".equals(type) || "CLIENT_ERROR".equals(code)) {
+            httpStatus = "400";
+        } else if ("HTTP_TIMEOUT".equals(code)) {
+            httpStatus = "504";
+        } else if ("TRANSIENT".equals(code)) {
+            httpStatus = "503";
+        } else {
+            httpStatus = "500";
+        }
+    }
+
+    props.setProperty("document.dynamic.userdefined.DDP_FWK_ERROR_TYPE", type);
+    props.setProperty("document.dynamic.userdefined.DDP_FWK_ERROR_CODE", code);
+    props.setProperty("document.dynamic.userdefined.DDP_FWK_ERROR_SOURCE", source);
+    props.setProperty("document.dynamic.userdefined.DDP_FWK_ERROR_MESSAGE", message);
+    props.setProperty("document.dynamic.userdefined.DDP_FWK_HTTP_STATUS", httpStatus);
+    props.setProperty("document.dynamic.userdefined.DDP_FWK_CORRELATION_ID", correlationId);
+
+    ExecutionUtil.setDynamicProcessProperty("DPP_FWK_LAST_ERROR_MESSAGE", message, false);
+    ExecutionUtil.setDynamicProcessProperty("DPP_FWK_LAST_ERROR_CODE", code, false);
+    ExecutionUtil.setDynamicProcessProperty("DPP_FWK_LAST_ERROR_TYPE", type, false);
+    ExecutionUtil.setDynamicProcessProperty("DPP_FWK_LAST_ERROR_SOURCE", source, false);
+    ExecutionUtil.setDynamicProcessProperty("DPP_FWK_LAST_HTTP_STATUS", httpStatus, false);
+    ExecutionUtil.setDynamicProcessProperty("DPP_FWK_LAST_CORRELATION_ID", correlationId, false);
+    ExecutionUtil.setDynamicProcessProperty("DPP_FWK_LAST_EXECUTION_ID", executionId, false);
+
+    String json = "{\"errorType\":\"" + jsonEscape(type)
+        + "\",\"errorCode\":\"" + jsonEscape(code)
+        + "\",\"errorSource\":\"" + jsonEscape(source)
+        + "\",\"errorMessage\":\"" + jsonEscape(message)
+        + "\",\"httpStatus\":\"" + jsonEscape(httpStatus)
+        + "\",\"correlationId\":\"" + jsonEscape(correlationId)
+        + "\",\"processName\":\"" + jsonEscape(processName)
+        + "\",\"executionId\":\"" + jsonEscape(executionId)
+        + "\",\"atomName\":\"" + jsonEscape(atomName)
+        + "\",\"timestamp\":\"" + jsonEscape(timestamp) + "\"}";
+
+    dataContext.storeStream(new ByteArrayInputStream(json.getBytes("UTF-8")), props);
+}]]></script>
+                </dataprocessscript>
+              </step>
+            </dataprocess>
+          </configuration>
+          <dragpoints>
+            <dragpoint name="shape7.dragpoint1" toShape="shape8" x="1376.0" y="56.0"/>
+          </dragpoints>
+        </shape>
+        <shape image="decision_icon" name="shape8" shapetype="decision" userlabel="Raise platform event" x="1392.0" y="48.0">
+          <configuration>
+            <decision comparison="equals" name="Raise platform event">
+              <decisionvalue valueType="track">
+                <trackparameter defaultValue="true" propertyId="dynamicdocument.DDP_FWK_RAISE_EVENT" propertyName="Dynamic Document Property - DDP_FWK_RAISE_EVENT"/>
+              </decisionvalue>
+              <decisionvalue valueType="static">
+                <staticparameter staticproperty="true"/>
+              </decisionvalue>
+            </decision>
+          </configuration>
+          <dragpoints>
+            <dragpoint identifier="true" name="shape8.dragpoint1" text="True" toShape="shape9" x="1600.0" y="56.0"/>
+            <dragpoint identifier="false" name="shape8.dragpoint2" text="False" toShape="shape10" x="1600.0" y="280.0"/>
+          </dragpoints>
+        </shape>
+        <shape image="notify_icon" name="shape9" shapetype="notify" userlabel="Log error and raise event" x="1616.0" y="48.0">
+          <configuration>
+            <notify disableEvent="false" enableUserLog="false" perExecution="false" title="Integration error">
+              <notifyMessage>type={1} code={2} source={3} httpStatus={4} process={5} execution={6} atom={7} correlation={8} message={9}</notifyMessage>
+              <notifyMessageLevel>ERROR</notifyMessageLevel>
+              <notifyParameters>
+                <parametervalue key="0" valueType="track">
+                  <trackparameter defaultValue="" propertyId="dynamicdocument.DDP_FWK_ERROR_TYPE" propertyName="Dynamic Document Property - DDP_FWK_ERROR_TYPE"/>
+                </parametervalue>
+                <parametervalue key="1" valueType="track">
+                  <trackparameter defaultValue="" propertyId="dynamicdocument.DDP_FWK_ERROR_CODE" propertyName="Dynamic Document Property - DDP_FWK_ERROR_CODE"/>
+                </parametervalue>
+                <parametervalue key="2" valueType="track">
+                  <trackparameter defaultValue="" propertyId="dynamicdocument.DDP_FWK_ERROR_SOURCE" propertyName="Dynamic Document Property - DDP_FWK_ERROR_SOURCE"/>
+                </parametervalue>
+                <parametervalue key="3" valueType="track">
+                  <trackparameter defaultValue="" propertyId="dynamicdocument.DDP_FWK_HTTP_STATUS" propertyName="Dynamic Document Property - DDP_FWK_HTTP_STATUS"/>
+                </parametervalue>
+                <parametervalue key="4" valueType="track">
+                  <trackparameter defaultValue="" propertyId="dynamicdocument.DDP_FWK_PROCESS_NAME" propertyName="Dynamic Document Property - DDP_FWK_PROCESS_NAME"/>
+                </parametervalue>
+                <parametervalue key="5" valueType="track">
+                  <trackparameter defaultValue="" propertyId="dynamicdocument.DDP_FWK_EXECUTION_ID" propertyName="Dynamic Document Property - DDP_FWK_EXECUTION_ID"/>
+                </parametervalue>
+                <parametervalue key="6" valueType="track">
+                  <trackparameter defaultValue="" propertyId="dynamicdocument.DDP_FWK_ATOM_NAME" propertyName="Dynamic Document Property - DDP_FWK_ATOM_NAME"/>
+                </parametervalue>
+                <parametervalue key="7" valueType="track">
+                  <trackparameter defaultValue="" propertyId="dynamicdocument.DDP_FWK_CORRELATION_ID" propertyName="Dynamic Document Property - DDP_FWK_CORRELATION_ID"/>
+                </parametervalue>
+                <parametervalue key="8" valueType="track">
+                  <trackparameter defaultValue="" propertyId="dynamicdocument.DDP_FWK_ERROR_MESSAGE" propertyName="Dynamic Document Property - DDP_FWK_ERROR_MESSAGE"/>
+                </parametervalue>
+              </notifyParameters>
+            </notify>
+          </configuration>
+          <dragpoints>
+            <dragpoint name="shape9.dragpoint1" toShape="shape11" x="1824.0" y="56.0"/>
+          </dragpoints>
+        </shape>
+        <shape image="notify_icon" name="shape10" shapetype="notify" userlabel="Log error without event" x="1616.0" y="272.0">
+          <configuration>
+            <notify disableEvent="true" enableUserLog="false" perExecution="false" title="Integration error">
+              <notifyMessage>type={1} code={2} source={3} httpStatus={4} process={5} execution={6} atom={7} correlation={8} message={9}</notifyMessage>
+              <notifyMessageLevel>ERROR</notifyMessageLevel>
+              <notifyParameters>
+                <parametervalue key="0" valueType="track">
+                  <trackparameter defaultValue="" propertyId="dynamicdocument.DDP_FWK_ERROR_TYPE" propertyName="Dynamic Document Property - DDP_FWK_ERROR_TYPE"/>
+                </parametervalue>
+                <parametervalue key="1" valueType="track">
+                  <trackparameter defaultValue="" propertyId="dynamicdocument.DDP_FWK_ERROR_CODE" propertyName="Dynamic Document Property - DDP_FWK_ERROR_CODE"/>
+                </parametervalue>
+                <parametervalue key="2" valueType="track">
+                  <trackparameter defaultValue="" propertyId="dynamicdocument.DDP_FWK_ERROR_SOURCE" propertyName="Dynamic Document Property - DDP_FWK_ERROR_SOURCE"/>
+                </parametervalue>
+                <parametervalue key="3" valueType="track">
+                  <trackparameter defaultValue="" propertyId="dynamicdocument.DDP_FWK_HTTP_STATUS" propertyName="Dynamic Document Property - DDP_FWK_HTTP_STATUS"/>
+                </parametervalue>
+                <parametervalue key="4" valueType="track">
+                  <trackparameter defaultValue="" propertyId="dynamicdocument.DDP_FWK_PROCESS_NAME" propertyName="Dynamic Document Property - DDP_FWK_PROCESS_NAME"/>
+                </parametervalue>
+                <parametervalue key="5" valueType="track">
+                  <trackparameter defaultValue="" propertyId="dynamicdocument.DDP_FWK_EXECUTION_ID" propertyName="Dynamic Document Property - DDP_FWK_EXECUTION_ID"/>
+                </parametervalue>
+                <parametervalue key="6" valueType="track">
+                  <trackparameter defaultValue="" propertyId="dynamicdocument.DDP_FWK_ATOM_NAME" propertyName="Dynamic Document Property - DDP_FWK_ATOM_NAME"/>
+                </parametervalue>
+                <parametervalue key="7" valueType="track">
+                  <trackparameter defaultValue="" propertyId="dynamicdocument.DDP_FWK_CORRELATION_ID" propertyName="Dynamic Document Property - DDP_FWK_CORRELATION_ID"/>
+                </parametervalue>
+                <parametervalue key="8" valueType="track">
+                  <trackparameter defaultValue="" propertyId="dynamicdocument.DDP_FWK_ERROR_MESSAGE" propertyName="Dynamic Document Property - DDP_FWK_ERROR_MESSAGE"/>
+                </parametervalue>
+              </notifyParameters>
+            </notify>
+          </configuration>
+          <dragpoints>
+            <dragpoint name="shape10.dragpoint1" toShape="shape11" x="1824.0" y="56.0"/>
+          </dragpoints>
+        </shape>
+        <shape image="decision_icon" name="shape11" shapetype="decision" userlabel="Return error document" x="1840.0" y="48.0">
+          <configuration>
+            <decision comparison="equals" name="Return error document">
+              <decisionvalue valueType="track">
+                <trackparameter defaultValue="true" propertyId="dynamicdocument.DDP_FWK_FAIL_DOCUMENT" propertyName="Dynamic Document Property - DDP_FWK_FAIL_DOCUMENT"/>
+              </decisionvalue>
+              <decisionvalue valueType="static">
+                <staticparameter staticproperty="false"/>
+              </decisionvalue>
+            </decision>
+          </configuration>
+          <dragpoints>
+            <dragpoint identifier="true" name="shape11.dragpoint1" text="True" toShape="shape12" x="2048.0" y="280.0"/>
+            <dragpoint identifier="false" name="shape11.dragpoint2" text="False" toShape="shape14" x="2048.0" y="56.0"/>
+          </dragpoints>
+        </shape>
+        <shape image="returndocuments_icon" name="shape12" shapetype="returndocuments" userlabel="Return error document" x="2064.0" y="272.0">
+          <configuration>
+            <returndocuments label="Return error document"/>
+          </configuration>
+          <dragpoints/>
+        </shape>
+        <shape image="decision_icon" name="shape14" shapetype="decision" userlabel="Stop entire process" x="2064.0" y="48.0">
+          <configuration>
+            <decision comparison="equals" name="Stop entire process">
+              <decisionvalue valueType="track">
+                <trackparameter defaultValue="false" propertyId="dynamicdocument.DDP_FWK_STOP_PROCESS" propertyName="Dynamic Document Property - DDP_FWK_STOP_PROCESS"/>
+              </decisionvalue>
+              <decisionvalue valueType="static">
+                <staticparameter staticproperty="true"/>
+              </decisionvalue>
+            </decision>
+          </configuration>
+          <dragpoints>
+            <dragpoint identifier="true" name="shape14.dragpoint1" text="True" toShape="shape15" x="2272.0" y="280.0"/>
+            <dragpoint identifier="false" name="shape14.dragpoint2" text="False" toShape="shape13" x="2272.0" y="56.0"/>
+          </dragpoints>
+        </shape>
+        <shape image="exception_icon" name="shape13" shapetype="exception" userlabel="Fail this document" x="2288.0" y="48.0">
+          <configuration>
+            <exception stopProcessReturnSingleDoc="false" stopsingledoc="true" title="Integration error">
+              <exMessage>[{1}/{2}] {3}: {4}</exMessage>
+              <exParameters>
+                <parametervalue key="0" usesEncryption="false" valueType="track">
+                  <trackparameter defaultValue="" propertyId="dynamicdocument.DDP_FWK_ERROR_TYPE" propertyName="Dynamic Document Property - DDP_FWK_ERROR_TYPE"/>
+                </parametervalue>
+                <parametervalue key="1" usesEncryption="false" valueType="track">
+                  <trackparameter defaultValue="" propertyId="dynamicdocument.DDP_FWK_ERROR_CODE" propertyName="Dynamic Document Property - DDP_FWK_ERROR_CODE"/>
+                </parametervalue>
+                <parametervalue key="2" usesEncryption="false" valueType="track">
+                  <trackparameter defaultValue="" propertyId="dynamicdocument.DDP_FWK_ERROR_SOURCE" propertyName="Dynamic Document Property - DDP_FWK_ERROR_SOURCE"/>
+                </parametervalue>
+                <parametervalue key="3" usesEncryption="false" valueType="track">
+                  <trackparameter defaultValue="" propertyId="dynamicdocument.DDP_FWK_ERROR_MESSAGE" propertyName="Dynamic Document Property - DDP_FWK_ERROR_MESSAGE"/>
+                </parametervalue>
+              </exParameters>
+            </exception>
+          </configuration>
+          <dragpoints/>
+        </shape>
+        <shape image="exception_icon" name="shape15" shapetype="exception" userlabel="Stop entire process" x="2288.0" y="272.0">
+          <configuration>
+            <exception stopProcessReturnSingleDoc="false" stopsingledoc="false" title="Integration error">
+              <exMessage>[{1}/{2}] {3}: {4}</exMessage>
+              <exParameters>
+                <parametervalue key="0" usesEncryption="false" valueType="track">
+                  <trackparameter defaultValue="" propertyId="dynamicdocument.DDP_FWK_ERROR_TYPE" propertyName="Dynamic Document Property - DDP_FWK_ERROR_TYPE"/>
+                </parametervalue>
+                <parametervalue key="1" usesEncryption="false" valueType="track">
+                  <trackparameter defaultValue="" propertyId="dynamicdocument.DDP_FWK_ERROR_CODE" propertyName="Dynamic Document Property - DDP_FWK_ERROR_CODE"/>
+                </parametervalue>
+                <parametervalue key="2" usesEncryption="false" valueType="track">
+                  <trackparameter defaultValue="" propertyId="dynamicdocument.DDP_FWK_ERROR_SOURCE" propertyName="Dynamic Document Property - DDP_FWK_ERROR_SOURCE"/>
+                </parametervalue>
+                <parametervalue key="3" usesEncryption="false" valueType="track">
+                  <trackparameter defaultValue="" propertyId="dynamicdocument.DDP_FWK_ERROR_MESSAGE" propertyName="Dynamic Document Property - DDP_FWK_ERROR_MESSAGE"/>
+                </parametervalue>
+              </exParameters>
+            </exception>
+          </configuration>
+          <dragpoints/>
+        </shape>
+      </shapes>
+    </process>
+  </bns:object>
+</bns:Component>

@@ -1,0 +1,1495 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?><bns:Component xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:bns="http://api.platform.boomi.com/" folderFullPath="AMMEX Corporation/Archive_07_14_2025/(SDLC) Ammex Corporation/#Production/Account/Customer/#Common/Assets" componentId="e8bcb058-d2cf-469b-9536-175f5ace3b93" version="115" name="[DB] CUSTOMER,CUSTOMER2 UPSERT, EXEC EXTENDER_UPSERT_CUSTOMER, EXEC EXTENDER_UPSERT_EXT01103 Request DB" type="profile.db" createdDate="2023-03-22T17:00:39Z" createdBy="vhuerto@ammex.com" modifiedDate="2026-04-23T19:54:06Z" modifiedBy="vhuerto@ammex.com" deleted="false" currentVersion="true" folderName="Assets" folderId="Rjo2ODYyNzI3" branchName="main" branchId="Qjo0MDU3Ng"><bns:encryptedValues/><bns:description>revision 60</bns:description><bns:object><DatabaseProfile xmlns="" strict="true" version="2"><ProfileProperties><DatabaseGeneralInfo executionType="dbwrite"/></ProfileProperties><DataElements><DBStatement isNode="true" key="2" name="CUSTOMER.[Location/Member #] STRING" statementType="standardinsertupdatedelete" storedProcedure="EXTENDER_UPSERT_CUSTOMER" tableName=""><DBFields isNode="true" key="3" name="Fields"><DatabaseElement enforceUnique="false" isMappable="true" isNode="true" key="5" mandatory="false" name="@AMMEX_GP_Extenal_ID__c"><DataFormat><ProfileCharacterFormat/></DataFormat></DatabaseElement><DatabaseElement enforceUnique="false" isMappable="true" isNode="true" key="6" mandatory="false" name="@SFTextValue"><DataFormat><ProfileCharacterFormat/></DataFormat></DatabaseElement></DBFields><sql>DECLARE @AMMEX_GP_Extenal_ID__c CHAR(51) = TRIM(?),
+		@SFTextValue CHAR(255) = TRIM(?);
+
+IF @AMMEX_GP_Extenal_ID__c &lt;&gt; ''
+BEGIN
+    DECLARE @FieldName char(31) = 'Location/Member #',
+        	@EXTENDER_FIELD_ID int = NULL;
+    
+    ------------------------Find the ID of the FIELD Above---------------
+    SELECT 
+    	@EXTENDER_FIELD_ID=Field_ID
+    FROM 
+    	EXT20010 --STORES ALL FIELD DETAILS
+    WHERE 
+    	EXT20010.FIELDNAM LIKE '%'+RTRIM(@FieldName)+'%';
+    
+    IF @EXTENDER_FIELD_ID IS NULL
+    BEGIN
+        raiserror('Field ID for [Location/Member #] is not found.', 16,2);
+    END;
+    ---------------------------------------------------------------------
+    
+    
+    ----------Find if there are any Record of Customer from Source Data in WINDOW_ID above------------------
+    /*DECLARE @EXTENDER_RECORD_ID BIGINT = NULL,
+            @EXTENDER_WINDOW_ID char(15) = 'CUSTOMER'
+    
+    SELECT 
+        @EXTENDER_RECORD_ID = Extender_Record_ID
+    FROM 
+        EXT01100 WITH(NOLOCK) --STORES ALL RECORDS IN EXTENDER TABLE
+    WHERE 
+        Extender_Window_ID = RTRIM(@EXTENDER_WINDOW_ID) 
+    	AND Extender_Key_Values_1 = RTRIM(@AMMEX_GP_Extenal_ID__c)
+    	
+    IF @EXTENDER_RECORD_ID IS NULL
+    BEGIN
+        INSERT INTO EXT01100 (
+            Extender_Record_ID,
+            Extender_Window_ID,
+            Extender_Key_Values_1,
+            Extender_Key_Values_2,
+            Extender_Key_Values_3,
+            Extender_Key_Values_4,
+            Extender_Key_Values_5,
+            NOTEINDX,
+            MODIFDT,
+            MDFUSRID,
+            CREATDDT,
+            CRUSRId
+        )
+        VALUES(
+            (SELECT MAX(Extender_Record_ID) + 1 FROM EXT01100),                     -- Extender_Record_ID
+            RTRIM(@EXTENDER_WINDOW_ID),                       -- Extender_Window_ID
+            RTRIM(@AMMEX_GP_Extenal_ID__c),                -- Extender_Key_Values_1
+            '',                              -- Extender_Key_Values_2
+            '',                              -- Extender_Key_Values_3
+            '',                                        -- Extender_Key_Values_4
+            '',                                        -- Extender_Key_Values_5
+            '0.00',                                    -- NOTEINDX
+            DATEADD(d,DATEDIFF(d,0,getdate()),0),      -- MODIFDT
+            'BOOMI',                                      -- MDFUSRID
+            DATEADD(d,DATEDIFF(d,0,getdate()),0),      -- CREATDDT
+            'BOOMI'                                   -- CRUSRId
+        )
+        
+        SELECT 
+            @EXTENDER_RECORD_ID = Extender_Record_ID
+        FROM 
+            EXT01100 WITH(NOLOCK)
+        WHERE 
+            Extender_Window_ID = RTRIM(@EXTENDER_WINDOW_ID) 
+            AND Extender_Key_Values_1 = RTRIM(@AMMEX_GP_Extenal_ID__c)
+    END	*/
+    
+    DECLARE @EXTENDER_RECORD_ID BIGINT = NULL,
+        @EXTENDER_WINDOW_ID CHAR(15) = 'CUSTOMER',
+        @USRID CHAR(15) = 'BOOMI',
+        @RetryCount INT = 0,
+        @MaxRetries INT = 3;
+    
+    WHILE @RetryCount &lt; @MaxRetries
+    BEGIN
+        BEGIN TRY
+    
+            SET @EXTENDER_RECORD_ID = NULL;
+    
+            EXEC CREATE_EXTENDER_HEADER 
+                @EXTENDER_WINDOW_ID,
+                @AMMEX_GP_Extenal_ID__c,
+                '',
+                '',
+                '',
+                '',
+                @USRID,
+                @EXTENDER_RECORD_ID OUTPUT;
+    
+            IF @EXTENDER_RECORD_ID IS NULL
+            BEGIN
+                THROW 50001, 'Extender Record ID is null', 1;
+            END
+    
+            BREAK;
+    
+        END TRY
+        BEGIN CATCH
+    
+            SET @RetryCount += 1;
+    
+            IF @RetryCount &gt;= @MaxRetries
+            BEGIN
+                THROW;
+            END
+    
+            WAITFOR DELAY '00:00:02';
+    
+        END CATCH;
+    END;
+    ---------------------------------------------------------------------------------------------------------
+    
+    DECLARE @CUSTOMER_EXTENDER_FIELD_ID BIGINT = NULL;
+    
+    ----------Find if there are any Record of Customer in String Field Table (EXT01101) from Extender Table WINDOW_ID above------------------
+    SELECT
+    	@CUSTOMER_EXTENDER_FIELD_ID = Extender_Record_Id
+    FROM 
+    	EXT01101
+    WHERE
+    	Extender_Record_Id = @EXTENDER_RECORD_ID
+    	AND Field_ID = @EXTENDER_FIELD_ID;
+    
+    -------------------------UPSERT RECORD [Location/Member #]--------------------
+    IF @CUSTOMER_EXTENDER_FIELD_ID IS NULL
+    BEGIN
+        INSERT INTO EXT01101 (Extender_Record_ID,Field_ID,STRGA255)
+    		VALUES(@EXTENDER_RECORD_ID,@EXTENDER_FIELD_ID,@SFTextValue);
+    END
+    ELSE
+    BEGIN
+    	UPDATE EXT01101 
+    	    SET STRGA255=RTRIM(@SFTextValue)
+    	WHERE 
+    		Extender_Record_ID=@EXTENDER_RECORD_ID
+    		AND Field_ID=@EXTENDER_FIELD_ID;
+    END;
+    -------------------------------------------------------------------------
+END;</sql></DBStatement><DBStatement isNode="true" key="8" name="CUSTOMER2.[Central Pay] CHECKBOX" statementType="standardinsertupdatedelete" storedProcedure="" tableName="CUSTOMER2"><DBFields isNode="true" key="9" name="Fields"><DatabaseElement enforceUnique="false" isMappable="true" isNode="true" key="11" mandatory="false" name="@AMMEX_GP_Extenal_ID__c"><DataFormat><ProfileCharacterFormat/></DataFormat></DatabaseElement><DatabaseElement dataType="number" enforceUnique="false" isMappable="true" isNode="true" key="12" mandatory="true" name="@Checkbox"><DataFormat><ProfileNumberFormat/></DataFormat></DatabaseElement></DBFields><sql>DECLARE @AMMEX_GP_Extenal_ID__c CHAR(51) = TRIM(?),
+		--FIELDTYPE=7
+		@Checkbox INT = ?;
+
+IF @AMMEX_GP_Extenal_ID__c &lt;&gt; ''
+BEGIN
+    DECLARE @FieldName char(31) = 'Central Pay',
+        	@EXTENDER_FIELD_ID int = NULL;
+    
+    ------------------------Find the ID of the FIELD Above---------------
+    SELECT 
+    	@EXTENDER_FIELD_ID=Field_ID
+    FROM 
+    	EXT20010 --STORES ALL FIELD DETAILS
+    WHERE 
+    	EXT20010.FIELDNAM LIKE '%'+RTRIM(@FieldName)+'%';
+    
+    IF @EXTENDER_FIELD_ID IS NULL
+    BEGIN
+        raiserror('Field ID for [Central Pay] is not found.', 16,2);
+    END;
+    
+    ----------Find if there are any Record of Customer from Source Data in WINDOW_ID above------------------
+    
+    /*DECLARE @EXTENDER_RECORD_ID BIGINT = NULL,
+            @EXTENDER_WINDOW_ID char(15) = 'CUSTOMER2'
+    SELECT 
+        @EXTENDER_RECORD_ID = Extender_Record_ID
+    FROM 
+        EXT01100 WITH(NOLOCK) --STORES ALL RECORDS IN EXTENDER TABLE
+    WHERE 
+        Extender_Window_ID = RTRIM(@EXTENDER_WINDOW_ID) 
+    	AND Extender_Key_Values_1 = RTRIM(@AMMEX_GP_Extenal_ID__c)
+    	
+    IF @EXTENDER_RECORD_ID IS NULL
+    BEGIN
+        INSERT INTO EXT01100 (
+            Extender_Record_ID,
+            Extender_Window_ID,
+            Extender_Key_Values_1,
+            Extender_Key_Values_2,
+            Extender_Key_Values_3,
+            Extender_Key_Values_4,
+            Extender_Key_Values_5,
+            NOTEINDX,
+            MODIFDT,
+            MDFUSRID,
+            CREATDDT,
+            CRUSRId
+        )
+        VALUES(
+            (SELECT MAX(Extender_Record_ID) + 1 FROM EXT01100),                     -- Extender_Record_ID
+            RTRIM(@EXTENDER_WINDOW_ID),                       -- Extender_Window_ID
+            RTRIM(@AMMEX_GP_Extenal_ID__c),                -- Extender_Key_Values_1
+            '',                              -- Extender_Key_Values_2
+            '',                              -- Extender_Key_Values_3
+            '',                                        -- Extender_Key_Values_4
+            '',                                        -- Extender_Key_Values_5
+            '0.00',                                    -- NOTEINDX
+            DATEADD(d,DATEDIFF(d,0,getdate()),0),      -- MODIFDT
+            'BOOMI',                                      -- MDFUSRID
+            DATEADD(d,DATEDIFF(d,0,getdate()),0),      -- CREATDDT
+            'BOOMI'                                   -- CRUSRId
+        )
+        
+        SELECT 
+            @EXTENDER_RECORD_ID = Extender_Record_ID
+        FROM 
+            EXT01100 WITH(NOLOCK)
+        WHERE 
+            Extender_Window_ID = RTRIM(@EXTENDER_WINDOW_ID) 
+            AND Extender_Key_Values_1 = RTRIM(@AMMEX_GP_Extenal_ID__c)
+    END	*/
+    
+    DECLARE @EXTENDER_RECORD_ID BIGINT = NULL,
+        @EXTENDER_WINDOW_ID CHAR(15) = 'CUSTOMER2',
+        @USRID CHAR(15) = 'BOOMI',
+        @RetryCount INT = 0,
+        @MaxRetries INT = 3;
+    
+    WHILE @RetryCount &lt; @MaxRetries
+    BEGIN
+        BEGIN TRY
+    
+            SET @EXTENDER_RECORD_ID = NULL;
+    
+            EXEC CREATE_EXTENDER_HEADER 
+                @EXTENDER_WINDOW_ID,
+                @AMMEX_GP_Extenal_ID__c,
+                '',
+                '',
+                '',
+                '',
+                @USRID,
+                @EXTENDER_RECORD_ID OUTPUT;
+    
+            IF @EXTENDER_RECORD_ID IS NULL
+            BEGIN
+                THROW 50001, 'Extender Record ID is null', 1;
+            END
+    
+            BREAK;
+    
+        END TRY
+        BEGIN CATCH
+    
+            SET @RetryCount += 1;
+    
+            IF @RetryCount &gt;= @MaxRetries
+            BEGIN
+                THROW;
+            END
+    
+            WAITFOR DELAY '00:00:02';
+    
+        END CATCH;
+    END;
+    ---------------------------------------------------------------------------------------------------------
+    
+    EXEC EXTENDER_UPSERT_EXT01103 @EXTENDER_RECORD_ID,@EXTENDER_FIELD_ID,@Checkbox;
+END;
+</sql></DBStatement><DBStatement isNode="true" key="37" name="CUSTOMER2.[Do Not Sell Reason] PICKLIST" statementType="standardinsertupdatedelete" storedProcedure="" tableName=""><DBFields isNode="true" key="38" name="Fields"><DatabaseElement enforceUnique="false" isMappable="true" isNode="true" key="39" mandatory="false" name="@AMMEX_GP_External_ID__c"><DataFormat><ProfileCharacterFormat/></DataFormat></DatabaseElement><DatabaseElement enforceUnique="false" isMappable="true" isNode="true" key="41" mandatory="false" name="@Do_Not_Sell_Reason_Value"><DataFormat><ProfileCharacterFormat/></DataFormat></DatabaseElement><DatabaseElement enforceUnique="false" isMappable="true" isNode="true" key="75" mandatory="false" name="@Price_Change"><DataFormat><ProfileCharacterFormat/></DataFormat></DatabaseElement></DBFields><sql>DECLARE @AMMEX_GP_Extenal_ID__c CHAR(51) = TRIM(?),
+		@Picklist_Value CHAR(133) = TRIM(?),
+		@Price_Change CHAR(133) = TRIM(?);
+
+IF @AMMEX_GP_Extenal_ID__c&lt;&gt;''
+BEGIN
+    ----------Find if there are any Record of Customer from Source Data in WINDOW_ID above------------------
+    /*DECLARE @EXTENDER_RECORD_ID BIGINT = NULL,
+            @EXTENDER_WINDOW_ID char(15) = 'CUSTOMER2'
+    
+    SELECT 
+        @EXTENDER_RECORD_ID = Extender_Record_ID
+    FROM 
+        EXT01100 WITH(NOLOCK) --STORES ALL RECORDS IN EXTENDER TABLE
+    WHERE 
+        Extender_Window_ID = RTRIM(@EXTENDER_WINDOW_ID) 
+    	AND Extender_Key_Values_1 = RTRIM(@AMMEX_GP_Extenal_ID__c)
+    	
+    IF @EXTENDER_RECORD_ID IS NULL
+    BEGIN
+        INSERT INTO EXT01100 (
+            Extender_Record_ID,
+            Extender_Window_ID,
+            Extender_Key_Values_1,
+            Extender_Key_Values_2,
+            Extender_Key_Values_3,
+            Extender_Key_Values_4,
+            Extender_Key_Values_5,
+            NOTEINDX,
+            MODIFDT,
+            MDFUSRID,
+            CREATDDT,
+            CRUSRId
+        )
+        VALUES(
+            (SELECT MAX(Extender_Record_ID) + 1 FROM EXT01100),                     -- Extender_Record_ID
+            RTRIM(@EXTENDER_WINDOW_ID),                       -- Extender_Window_ID
+            RTRIM(@AMMEX_GP_Extenal_ID__c),                -- Extender_Key_Values_1
+            '',                              -- Extender_Key_Values_2
+            '',                              -- Extender_Key_Values_3
+            '',                                        -- Extender_Key_Values_4
+            '',                                        -- Extender_Key_Values_5
+            '0.00',                                    -- NOTEINDX
+            DATEADD(d,DATEDIFF(d,0,getdate()),0),      -- MODIFDT
+            'BOOMI',                                      -- MDFUSRID
+            DATEADD(d,DATEDIFF(d,0,getdate()),0),      -- CREATDDT
+            'BOOMI'                                   -- CRUSRId
+        )
+        
+        SELECT 
+            @EXTENDER_RECORD_ID = Extender_Record_ID
+        FROM 
+            EXT01100 WITH(NOLOCK)
+        WHERE 
+            Extender_Window_ID = RTRIM(@EXTENDER_WINDOW_ID) 
+            AND Extender_Key_Values_1 = RTRIM(@AMMEX_GP_Extenal_ID__c)
+    END	*/
+    
+    DECLARE @EXTENDER_RECORD_ID BIGINT = NULL,
+        @EXTENDER_WINDOW_ID CHAR(15) = 'CUSTOMER2',
+        @USRID CHAR(15) = 'BOOMI',
+        @RetryCount INT = 0,
+        @MaxRetries INT = 3;
+    
+    WHILE @RetryCount &lt; @MaxRetries
+    BEGIN
+        BEGIN TRY
+    
+            SET @EXTENDER_RECORD_ID = NULL;
+    
+            EXEC CREATE_EXTENDER_HEADER 
+                @EXTENDER_WINDOW_ID,
+                @AMMEX_GP_Extenal_ID__c,
+                '',
+                '',
+                '',
+                '',
+                @USRID,
+                @EXTENDER_RECORD_ID OUTPUT;
+    
+            IF @EXTENDER_RECORD_ID IS NULL
+            BEGIN
+                THROW 50001, 'Extender Record ID is null', 1;
+            END
+    
+            BREAK;
+    
+        END TRY
+        BEGIN CATCH
+    
+            SET @RetryCount += 1;
+    
+            IF @RetryCount &gt;= @MaxRetries
+            BEGIN
+                THROW;
+            END
+    
+            WAITFOR DELAY '00:00:02';
+    
+        END CATCH;
+    END;
+    ---------------------------------------------------------------------------------------------------------
+    
+    ------------------------Find the ID of the FIELD Above---------------
+    
+    DECLARE @FieldName char(31) = 'Do Not Sell Reason',
+        	@DNS_EXTENDER_FIELD_ID int = NULL;
+    SELECT 
+    	@DNS_EXTENDER_FIELD_ID=Field_ID
+    FROM 
+    	EXT20010 --STORES ALL FIELD DETAILS
+    WHERE 
+    	EXT20010.FIELDNAM LIKE '%'+@FieldName+'%';
+    
+    IF @DNS_EXTENDER_FIELD_ID IS NULL
+    BEGIN
+        raiserror('Field ID for [Do Not Sell Reason] is not found.', 16,2);
+    END;
+    ---------------------------------------------------------------------
+    
+    ---------------Find the ID of the Picklist Value from Source Data---------------
+    
+    DECLARE @DNS_Picklist_List_ID int = NULL;
+    
+    IF @Picklist_Value='' OR @Picklist_Value IS NULL
+    BEGIN
+        SET @Picklist_Value = '(blank)';
+    END;
+    
+    SELECT 
+        @DNS_Picklist_List_ID=Extender_List_Item_ID
+    FROM 
+    	EXT20021
+    	INNER JOIN EXT20010 ON EXT20021.Extender_List_ID = EXT20010.Extender_List_ID
+    WHERE 
+    	STRNG132 LIKE '%'+@Picklist_Value+'%'
+    	AND EXT20010.Field_ID=@DNS_EXTENDER_FIELD_ID;
+    
+    IF @DNS_Picklist_List_ID IS NULL
+    BEGIN
+        raiserror('[Do Not Sell Reason] option is not found in the Picklist', 16,2);
+    END;
+    
+	----------Stored Procedure to UPSERT Picklist in any Extender Table/Window------------
+    EXEC EXTENDER_UPSERT_EXT01103 @EXTENDER_RECORD_ID,@DNS_EXTENDER_FIELD_ID,@DNS_Picklist_List_ID;
+    --------------------------------------------------------------------------------------
+	
+	
+    -------------------------------------------------------------------------------------------------------------------------
+    IF @Price_Change&lt;&gt;'' AND @Price_Change IS NOT NULL
+	BEGIN
+		DECLARE @Price_Change_EXTENDER_FIELD_ID int = NULL;
+		
+		SELECT 
+			@Price_Change_EXTENDER_FIELD_ID=Field_ID
+		FROM 
+			EXT20010 --STORES ALL FIELD DETAILS
+		WHERE 
+			EXT20010.FIELDNAM='Price Change Notice';
+		
+		IF @Price_Change_EXTENDER_FIELD_ID IS NULL
+		BEGIN
+			raiserror('Field ID for [Price Change Notice] is not found.', 16,2);
+		END;
+		
+		/*IF @Price_Change='' OR @Price_Change IS NULL
+		BEGIN
+			SET @Price_Change = '(blank)';
+		END;*/
+		
+		DECLARE @Price_Change_Picklist_List_ID int = NULL;
+		
+		SELECT 
+			@Price_Change_Picklist_List_ID=Extender_List_Item_ID
+		FROM 
+			EXT20021
+			INNER JOIN EXT20010 ON EXT20021.Extender_List_ID = EXT20010.Extender_List_ID
+		WHERE 
+			STRNG132 LIKE '%'+@Price_Change+'%'
+			AND EXT20010.Field_ID=@Price_Change_EXTENDER_FIELD_ID;
+		
+		IF @Price_Change_Picklist_List_ID IS NULL
+		BEGIN
+			raiserror('[Price Change Notice] option is not found in the Picklist', 16,2);
+		END;
+		
+		EXEC EXTENDER_UPSERT_EXT01103 @EXTENDER_RECORD_ID,@Price_Change_EXTENDER_FIELD_ID,@Price_Change_Picklist_List_ID;
+	END
+    -------------------------------------------------------------------------------------------------------------------------
+END;</sql></DBStatement><DBStatement isNode="true" key="44" name="CUSTOMER2.[Inactive Reason] PICKLIST" statementType="standardinsertupdatedelete" storedProcedure="" tableName=""><DBFields isNode="true" key="45" name="Fields"><DatabaseElement enforceUnique="false" isMappable="true" isNode="true" key="46" mandatory="false" name="@AMMEX_GP_External_ID__c"><DataFormat><ProfileCharacterFormat/></DataFormat></DatabaseElement><DatabaseElement enforceUnique="false" isMappable="true" isNode="true" key="48" mandatory="false" name="@Inactive_Reason_Value"><DataFormat><ProfileCharacterFormat/></DataFormat></DatabaseElement></DBFields><sql>DECLARE @AMMEX_GP_Extenal_ID__c CHAR(51) = TRIM(?),
+		@Picklist_Value CHAR(133) = TRIM(?);
+
+IF @AMMEX_GP_Extenal_ID__c&lt;&gt;''
+BEGIN
+    
+    ----------Find if there are any Record of Customer from Source Data in WINDOW_ID above------------------
+    /*DECLARE @EXTENDER_RECORD_ID BIGINT = NULL,
+            @EXTENDER_WINDOW_ID char(15) = 'CUSTOMER2'
+    SELECT 
+        @EXTENDER_RECORD_ID = Extender_Record_ID
+    FROM 
+        EXT01100 WITH(NOLOCK) --STORES ALL RECORDS IN EXTENDER TABLE
+    WHERE 
+        Extender_Window_ID = RTRIM(@EXTENDER_WINDOW_ID) 
+    	AND Extender_Key_Values_1 = RTRIM(@AMMEX_GP_Extenal_ID__c)
+    	
+    IF @EXTENDER_RECORD_ID IS NULL
+    BEGIN
+        INSERT INTO EXT01100 (
+            Extender_Record_ID,
+            Extender_Window_ID,
+            Extender_Key_Values_1,
+            Extender_Key_Values_2,
+            Extender_Key_Values_3,
+            Extender_Key_Values_4,
+            Extender_Key_Values_5,
+            NOTEINDX,
+            MODIFDT,
+            MDFUSRID,
+            CREATDDT,
+            CRUSRId
+        )
+        VALUES(
+            (SELECT MAX(Extender_Record_ID) + 1 FROM EXT01100),                     -- Extender_Record_ID
+            RTRIM(@EXTENDER_WINDOW_ID),                       -- Extender_Window_ID
+            RTRIM(@AMMEX_GP_Extenal_ID__c),                -- Extender_Key_Values_1
+            '',                              -- Extender_Key_Values_2
+            '',                              -- Extender_Key_Values_3
+            '',                                        -- Extender_Key_Values_4
+            '',                                        -- Extender_Key_Values_5
+            '0.00',                                    -- NOTEINDX
+            DATEADD(d,DATEDIFF(d,0,getdate()),0),      -- MODIFDT
+            'BOOMI',                                      -- MDFUSRID
+            DATEADD(d,DATEDIFF(d,0,getdate()),0),      -- CREATDDT
+            'BOOMI'                                   -- CRUSRId
+        )
+        
+        SELECT 
+            @EXTENDER_RECORD_ID = Extender_Record_ID
+        FROM 
+            EXT01100 WITH(NOLOCK)
+        WHERE 
+            Extender_Window_ID = RTRIM(@EXTENDER_WINDOW_ID) 
+            AND Extender_Key_Values_1 = RTRIM(@AMMEX_GP_Extenal_ID__c)
+    END	*/
+    
+    DECLARE @EXTENDER_RECORD_ID BIGINT = NULL,
+        @EXTENDER_WINDOW_ID CHAR(15) = 'CUSTOMER2',
+        @USRID CHAR(15) = 'BOOMI',
+        @RetryCount INT = 0,
+        @MaxRetries INT = 3;
+    
+    WHILE @RetryCount &lt; @MaxRetries
+    BEGIN
+        BEGIN TRY
+    
+            SET @EXTENDER_RECORD_ID = NULL;
+    
+            EXEC CREATE_EXTENDER_HEADER 
+                @EXTENDER_WINDOW_ID,
+                @AMMEX_GP_Extenal_ID__c,
+                '',
+                '',
+                '',
+                '',
+                @USRID,
+                @EXTENDER_RECORD_ID OUTPUT;
+    
+            IF @EXTENDER_RECORD_ID IS NULL
+            BEGIN
+                THROW 50001, 'Extender Record ID is null', 1;
+            END
+    
+            BREAK;
+    
+        END TRY
+        BEGIN CATCH
+    
+            SET @RetryCount += 1;
+    
+            IF @RetryCount &gt;= @MaxRetries
+            BEGIN
+                THROW;
+            END
+    
+            WAITFOR DELAY '00:00:02';
+    
+        END CATCH;
+    END;
+    ---------------------------------------------------------------------------------------------------------
+    
+    ------------------------Find the ID of the FIELD Above---------------
+    
+    DECLARE @FieldName char(31) = 'Inactive Reason',
+        	@EXTENDER_FIELD_ID int = NULL;
+        	
+    SELECT 
+    	@EXTENDER_FIELD_ID=Field_ID
+    FROM 
+    	EXT20010 --STORES ALL FIELD DETAILS
+    WHERE 
+    	EXT20010.FIELDNAM LIKE '%'+@FieldName+'%';
+    
+    IF @EXTENDER_FIELD_ID IS NULL
+    BEGIN
+        raiserror('Field ID for [Inactive Reason] is not found.', 16,2);
+    END;
+    ---------------------------------------------------------------------
+    
+    ---------------Find the ID of the Picklist Value from Source Data---------------
+    
+    DECLARE @Picklist_List_ID int = NULL;
+    
+    IF @Picklist_Value='' OR @Picklist_Value IS NULL
+    BEGIN
+        SET @Picklist_Value = '(blank)'
+    END;
+    
+    SELECT 
+        @Picklist_List_ID=Extender_List_Item_ID
+    FROM 
+    	EXT20021
+    	INNER JOIN EXT20010 ON EXT20021.Extender_List_ID = EXT20010.Extender_List_ID
+    WHERE 
+    	STRNG132 LIKE '%'+@Picklist_Value+'%'
+    	AND EXT20010.Field_ID=@EXTENDER_FIELD_ID;
+    
+    IF @Picklist_List_ID IS NULL
+    BEGIN
+        raiserror('[Inactive Reason] option is not found in the Picklist', 16,2);
+    END;
+    ---------------------------------------------------------------------------------
+    
+    ----------Stored Procedure to UPSERT Picklist in any Extender Table/Window------------
+    EXEC EXTENDER_UPSERT_EXT01103 @EXTENDER_RECORD_ID,@EXTENDER_FIELD_ID,@Picklist_List_ID;
+    --------------------------------------------------------------------------------------
+END;</sql></DBStatement><DBStatement isNode="true" key="49" name="CUSTOMER2.[Order Method] PICKLIST" statementType="standardinsertupdatedelete" storedProcedure="" tableName=""><DBFields isNode="true" key="50" name="Fields"><DatabaseElement enforceUnique="false" isMappable="true" isNode="true" key="51" mandatory="false" name="@AMMEX_GP_External_ID__c"><DataFormat><ProfileCharacterFormat/></DataFormat></DatabaseElement><DatabaseElement enforceUnique="false" isMappable="true" isNode="true" key="52" mandatory="false" name="@Order_Method_Value"><DataFormat><ProfileCharacterFormat/></DataFormat></DatabaseElement></DBFields><sql>DECLARE @AMMEX_GP_Extenal_ID__c CHAR(51) = TRIM(?),
+		@Picklist_Value CHAR(133) = TRIM(?);
+
+IF @AMMEX_GP_Extenal_ID__c&lt;&gt;''
+BEGIN
+    /*DECLARE @EXTENDER_RECORD_ID BIGINT = NULL,
+            @EXTENDER_WINDOW_ID char(15) = 'CUSTOMER2'
+    
+    ----------Find if there are any Record of Customer from Source Data in WINDOW_ID above------------------
+    SELECT 
+        @EXTENDER_RECORD_ID = Extender_Record_ID
+    FROM 
+        EXT01100 WITH(NOLOCK) --STORES ALL RECORDS IN EXTENDER TABLE
+    WHERE 
+        Extender_Window_ID = RTRIM(@EXTENDER_WINDOW_ID) 
+    	AND Extender_Key_Values_1 = RTRIM(@AMMEX_GP_Extenal_ID__c)
+    	
+    IF @EXTENDER_RECORD_ID IS NULL
+    BEGIN
+        INSERT INTO EXT01100 (
+            Extender_Record_ID,
+            Extender_Window_ID,
+            Extender_Key_Values_1,
+            Extender_Key_Values_2,
+            Extender_Key_Values_3,
+            Extender_Key_Values_4,
+            Extender_Key_Values_5,
+            NOTEINDX,
+            MODIFDT,
+            MDFUSRID,
+            CREATDDT,
+            CRUSRId
+        )
+        VALUES(
+            (SELECT MAX(Extender_Record_ID) + 1 FROM EXT01100),                     -- Extender_Record_ID
+            RTRIM(@EXTENDER_WINDOW_ID),                       -- Extender_Window_ID
+            RTRIM(@AMMEX_GP_Extenal_ID__c),                -- Extender_Key_Values_1
+            '',                              -- Extender_Key_Values_2
+            '',                              -- Extender_Key_Values_3
+            '',                                        -- Extender_Key_Values_4
+            '',                                        -- Extender_Key_Values_5
+            '0.00',                                    -- NOTEINDX
+            DATEADD(d,DATEDIFF(d,0,getdate()),0),      -- MODIFDT
+            'BOOMI',                                      -- MDFUSRID
+            DATEADD(d,DATEDIFF(d,0,getdate()),0),      -- CREATDDT
+            'BOOMI'                                   -- CRUSRId
+        )
+        
+        SELECT 
+            @EXTENDER_RECORD_ID = Extender_Record_ID
+        FROM 
+            EXT01100 WITH(NOLOCK)
+        WHERE 
+            Extender_Window_ID = RTRIM(@EXTENDER_WINDOW_ID) 
+            AND Extender_Key_Values_1 = RTRIM(@AMMEX_GP_Extenal_ID__c)
+    END	*/
+    
+    DECLARE @EXTENDER_RECORD_ID BIGINT = NULL,
+        @EXTENDER_WINDOW_ID CHAR(15) = 'CUSTOMER2',
+        @USRID CHAR(15) = 'BOOMI',
+        @RetryCount INT = 0,
+        @MaxRetries INT = 3;
+    
+    WHILE @RetryCount &lt; @MaxRetries
+    BEGIN
+        BEGIN TRY
+    
+            SET @EXTENDER_RECORD_ID = NULL;
+    
+            EXEC CREATE_EXTENDER_HEADER 
+                @EXTENDER_WINDOW_ID,
+                @AMMEX_GP_Extenal_ID__c,
+                '',
+                '',
+                '',
+                '',
+                @USRID,
+                @EXTENDER_RECORD_ID OUTPUT;
+    
+            IF @EXTENDER_RECORD_ID IS NULL
+            BEGIN
+                THROW 50001, 'Extender Record ID is null', 1;
+            END
+    
+            BREAK;
+    
+        END TRY
+        BEGIN CATCH
+    
+            SET @RetryCount += 1;
+    
+            IF @RetryCount &gt;= @MaxRetries
+            BEGIN
+                THROW;
+            END
+    
+            WAITFOR DELAY '00:00:02';
+    
+        END CATCH;
+    END;
+    ---------------------------------------------------------------------------------------------------------
+    
+    DECLARE @FieldName char(31) = 'Order Method',
+        	@EXTENDER_FIELD_ID int = NULL;
+    
+    ------------------------Find the ID of the FIELD Above---------------
+    SELECT 
+    	@EXTENDER_FIELD_ID=Field_ID
+    FROM 
+    	EXT20010 --STORES ALL FIELD DETAILS
+    WHERE 
+    	EXT20010.FIELDNAM LIKE '%'+RTRIM(@FieldName)+'%';
+    
+    IF @EXTENDER_FIELD_ID IS NULL
+    BEGIN
+        raiserror('Field ID for [Order Method] is not found.', 16,2);
+    END;
+    ---------------------------------------------------------------------
+    
+    DECLARE @Picklist_List_ID int = NULL;
+    
+    ---------------Find the ID of the Picklist Value from Source Data---------------
+    
+    IF RTRIM(@Picklist_Value)='' OR RTRIM(@Picklist_Value) IS NULL
+    BEGIN
+        SET @Picklist_Value = 'None';
+    END;
+    
+    SELECT 
+        @Picklist_List_ID=Extender_List_Item_ID
+    FROM 
+    	EXT20021
+    	INNER JOIN EXT20010 ON EXT20021.Extender_List_ID = EXT20010.Extender_List_ID
+    WHERE 
+    	STRNG132 LIKE '%'+RTRIM(@Picklist_Value)+'%'
+    	AND EXT20010.Field_ID=@EXTENDER_FIELD_ID;
+    
+    IF @Picklist_List_ID IS NULL
+    BEGIN
+        raiserror('[Order Method] option is not found in the Picklist', 16,2);
+    END;
+    ---------------------------------------------------------------------------------
+    
+    ----------Stored Procedure to UPSERT Picklist in any Extender Table/Window------------
+    EXEC EXTENDER_UPSERT_EXT01103 @EXTENDER_RECORD_ID,@EXTENDER_FIELD_ID,@Picklist_List_ID;
+    --------------------------------------------------------------------------------------
+END;</sql></DBStatement><DBStatement isNode="true" key="55" name="CUSTOMER2.[Association] STRING" statementType="standardinsertupdatedelete" storedProcedure="" tableName=""><DBFields isNode="true" key="56" name="Fields"><DatabaseElement enforceUnique="false" isMappable="true" isNode="true" key="57" mandatory="false" name="@AMMEX_GP_External_ID__c"><DataFormat><ProfileCharacterFormat/></DataFormat></DatabaseElement><DatabaseElement enforceUnique="false" isMappable="true" isNode="true" key="58" mandatory="false" name="@Association__c"><DataFormat><ProfileCharacterFormat/></DataFormat></DatabaseElement></DBFields><sql>DECLARE @AMMEX_GP_Extenal_ID__c CHAR(51) = TRIM(?),
+		@SFTextValue CHAR(255) = TRIM(?);
+
+IF @AMMEX_GP_Extenal_ID__c&lt;&gt;''
+BEGIN
+    
+    ------------------------Find the ID of the FIELD Above---------------
+    DECLARE @FieldName char(31) = 'Association',
+        	@EXTENDER_FIELD_ID int = NULL;
+        	
+    SELECT 
+    	@EXTENDER_FIELD_ID=Field_ID
+    FROM 
+    	EXT20010 --STORES ALL FIELD DETAILS
+    WHERE 
+    	EXT20010.FIELDNAM LIKE '%'+RTRIM(@FieldName)+'%';
+    
+    IF @EXTENDER_FIELD_ID IS NULL
+    BEGIN
+        raiserror('Field ID for Association is not found.', 16,2);
+    END;
+    ---------------------------------------------------------------------
+    
+    ----------Find if there are any Record of Customer from Source Data in WINDOW_ID above------------------
+    
+    /*DECLARE @EXTENDER_RECORD_ID BIGINT = NULL,
+            @EXTENDER_WINDOW_ID char(15) = 'CUSTOMER2'
+    SELECT 
+        @EXTENDER_RECORD_ID = Extender_Record_ID
+    FROM 
+        EXT01100 WITH(NOLOCK) --STORES ALL RECORDS IN EXTENDER TABLE
+    WHERE 
+        Extender_Window_ID = RTRIM(@EXTENDER_WINDOW_ID) 
+    	AND Extender_Key_Values_1 = RTRIM(@AMMEX_GP_Extenal_ID__c)
+    	
+    IF @EXTENDER_RECORD_ID IS NULL
+    BEGIN
+        INSERT INTO EXT01100 (
+            Extender_Record_ID,
+            Extender_Window_ID,
+            Extender_Key_Values_1,
+            Extender_Key_Values_2,
+            Extender_Key_Values_3,
+            Extender_Key_Values_4,
+            Extender_Key_Values_5,
+            NOTEINDX,
+            MODIFDT,
+            MDFUSRID,
+            CREATDDT,
+            CRUSRId
+        )
+        VALUES(
+            (SELECT MAX(Extender_Record_ID) + 1 FROM EXT01100),                     -- Extender_Record_ID
+            RTRIM(@EXTENDER_WINDOW_ID),                       -- Extender_Window_ID
+            RTRIM(@AMMEX_GP_Extenal_ID__c),                -- Extender_Key_Values_1
+            '',                              -- Extender_Key_Values_2
+            '',                              -- Extender_Key_Values_3
+            '',                                        -- Extender_Key_Values_4
+            '',                                        -- Extender_Key_Values_5
+            '0.00',                                    -- NOTEINDX
+            DATEADD(d,DATEDIFF(d,0,getdate()),0),      -- MODIFDT
+            'BOOMI',                                      -- MDFUSRID
+            DATEADD(d,DATEDIFF(d,0,getdate()),0),      -- CREATDDT
+            'BOOMI'                                   -- CRUSRId
+        )
+        
+        SELECT 
+            @EXTENDER_RECORD_ID = Extender_Record_ID
+        FROM 
+            EXT01100 WITH(NOLOCK)
+        WHERE 
+            Extender_Window_ID = RTRIM(@EXTENDER_WINDOW_ID) 
+            AND Extender_Key_Values_1 = RTRIM(@AMMEX_GP_Extenal_ID__c)
+    END	*/
+    
+    DECLARE @EXTENDER_RECORD_ID BIGINT = NULL,
+        @EXTENDER_WINDOW_ID CHAR(15) = 'CUSTOMER2',
+        @USRID CHAR(15) = 'BOOMI',
+        @RetryCount INT = 0,
+        @MaxRetries INT = 3;
+    
+    WHILE @RetryCount &lt; @MaxRetries
+    BEGIN
+        BEGIN TRY
+    
+            SET @EXTENDER_RECORD_ID = NULL;
+    
+            EXEC CREATE_EXTENDER_HEADER 
+                @EXTENDER_WINDOW_ID,
+                @AMMEX_GP_Extenal_ID__c,
+                '',
+                '',
+                '',
+                '',
+                @USRID,
+                @EXTENDER_RECORD_ID OUTPUT;
+    
+            IF @EXTENDER_RECORD_ID IS NULL
+            BEGIN
+                THROW 50001, 'Extender Record ID is null', 1;
+            END
+    
+            BREAK;
+    
+        END TRY
+        BEGIN CATCH
+    
+            SET @RetryCount += 1;
+    
+            IF @RetryCount &gt;= @MaxRetries
+            BEGIN
+                THROW;
+            END
+    
+            WAITFOR DELAY '00:00:02';
+    
+        END CATCH;
+    END;
+    ---------------------------------------------------------------------------------------------------------
+    
+    DECLARE @CUSTOMER_EXTENDER_FIELD_ID BIGINT = NULL;
+    
+    ----------Find if there are any Record of Customer in String Field Table (EXT01101) from Extender Table WINDOW_ID above------------------
+    SELECT
+    	@CUSTOMER_EXTENDER_FIELD_ID = Extender_Record_Id
+    FROM 
+    	EXT01101
+    WHERE
+    	Extender_Record_Id = @EXTENDER_RECORD_ID
+    	AND Field_ID = @EXTENDER_FIELD_ID;
+    
+    -------------------------UPSERT RECORD Association--------------------
+    IF @CUSTOMER_EXTENDER_FIELD_ID IS NULL
+    BEGIN
+        INSERT INTO EXT01101 (Extender_Record_ID,Field_ID,STRGA255)
+    		VALUES(@EXTENDER_RECORD_ID,@EXTENDER_FIELD_ID,@SFTextValue);
+    END
+    ELSE
+    BEGIN
+    	UPDATE EXT01101 
+    	    SET STRGA255=RTRIM(@SFTextValue)
+    	WHERE 
+    		Extender_Record_ID=@EXTENDER_RECORD_ID
+    		AND Field_ID=@EXTENDER_FIELD_ID;
+    END;
+    -------------------------------------------------------------------------
+END;</sql></DBStatement><DBStatement isNode="true" key="20" name="CUSTOMER2.[Sales Partner 1] STRING" statementType="standardinsertupdatedelete" storedProcedure="" tableName=""><DBFields isNode="true" key="21" name="Fields"><DatabaseElement enforceUnique="false" isMappable="true" isNode="true" key="22" mandatory="false" name="@AMMEX_GP_EXTERNAL_ID"><DataFormat><ProfileCharacterFormat/></DataFormat></DatabaseElement><DatabaseElement dataType="character" enforceUnique="false" isMappable="true" isNode="true" key="24" mandatory="false" name="@StringValue"><DataFormat><ProfileCharacterFormat/></DataFormat></DatabaseElement></DBFields><sql>DECLARE @AMMEX_GP_EXTERNAL_ID CHAR(51) = TRIM(?),
+		@StringValue CHAR(255) = TRIM(?);
+
+IF @AMMEX_GP_EXTERNAL_ID&lt;&gt;''
+BEGIN
+    ------------------------Find the ID of the FIELD Above---------------
+    DECLARE @EXTENDER_FIELD_ID int = NULL,
+            @FieldName char(31) = 'Sales Partner 1';
+    
+    SELECT 
+    	@EXTENDER_FIELD_ID=Field_ID
+    FROM 
+    	EXT20010 --STORES ALL FIELD DETAILS
+    WHERE 
+    	EXT20010.FIELDNAM=RTRIM(@FieldName);
+    
+    IF @EXTENDER_FIELD_ID IS NULL
+    BEGIN
+        raiserror('Field ID for [Sales Partner 1] is not found.', 16,2);
+    END;
+    ---------------------------------------------------------------------
+    
+    /*DECLARE @EXTENDER_RECORD_ID BIGINT = NULL,
+            @EXTENDER_WINDOW_ID char(15) = 'CUSTOMER2'
+    
+    ----------Find if there are any Record of Customer from Source Data in WINDOW_ID above------------------
+    SELECT 
+        @EXTENDER_RECORD_ID = Extender_Record_ID
+    FROM 
+        EXT01100 WITH(NOLOCK) --STORES ALL RECORDS IN EXTENDER TABLE
+    WHERE 
+        Extender_Window_ID = RTRIM(@EXTENDER_WINDOW_ID) 
+    	AND Extender_Key_Values_1 = RTRIM(@AMMEX_GP_EXTERNAL_ID)
+    	
+    IF @EXTENDER_RECORD_ID IS NULL
+    BEGIN
+        INSERT INTO EXT01100 (
+            Extender_Record_ID,
+            Extender_Window_ID,
+            Extender_Key_Values_1,
+            Extender_Key_Values_2,
+            Extender_Key_Values_3,
+            Extender_Key_Values_4,
+            Extender_Key_Values_5,
+            NOTEINDX,
+            MODIFDT,
+            MDFUSRID,
+            CREATDDT,
+            CRUSRId
+        )
+        VALUES(
+            (SELECT MAX(Extender_Record_ID) + 1 FROM EXT01100),                     -- Extender_Record_ID
+            RTRIM(@EXTENDER_WINDOW_ID),                       -- Extender_Window_ID
+            RTRIM(@AMMEX_GP_EXTERNAL_ID),                -- Extender_Key_Values_1
+            '',                              -- Extender_Key_Values_2
+            '',                              -- Extender_Key_Values_3
+            '',                                        -- Extender_Key_Values_4
+            '',                                        -- Extender_Key_Values_5
+            '0.00',                                    -- NOTEINDX
+            DATEADD(d,DATEDIFF(d,0,getdate()),0),      -- MODIFDT
+            'BOOMI',                                      -- MDFUSRID
+            DATEADD(d,DATEDIFF(d,0,getdate()),0),      -- CREATDDT
+            'BOOMI'                                   -- CRUSRId
+        )
+        
+        SELECT 
+            @EXTENDER_RECORD_ID = Extender_Record_ID
+        FROM 
+            EXT01100 WITH(NOLOCK)
+        WHERE 
+            Extender_Window_ID = RTRIM(@EXTENDER_WINDOW_ID) 
+            AND Extender_Key_Values_1 = RTRIM(@AMMEX_GP_EXTERNAL_ID)
+    END*/
+        
+        DECLARE @EXTENDER_RECORD_ID BIGINT = NULL,
+            @EXTENDER_WINDOW_ID CHAR(15) = 'CUSTOMER2',
+            @USRID CHAR(15) = 'BOOMI',
+            @RetryCount INT = 0,
+            @MaxRetries INT = 3;
+        
+        WHILE @RetryCount &lt; @MaxRetries
+        BEGIN
+            BEGIN TRY
+        
+                SET @EXTENDER_RECORD_ID = NULL;
+        
+                EXEC CREATE_EXTENDER_HEADER 
+                    @EXTENDER_WINDOW_ID,
+                    @AMMEX_GP_EXTERNAL_ID,
+                    '',
+                    '',
+                    '',
+                    '',
+                    @USRID,
+                    @EXTENDER_RECORD_ID OUTPUT;
+        
+                IF @EXTENDER_RECORD_ID IS NULL
+                BEGIN
+                    THROW 50001, 'Extender Record ID is null', 1;
+                END
+        
+                BREAK;
+        
+            END TRY
+            BEGIN CATCH
+        
+                SET @RetryCount += 1;
+        
+                IF @RetryCount &gt;= @MaxRetries
+                BEGIN
+                    THROW;
+                END
+        
+                WAITFOR DELAY '00:00:02';
+        
+            END CATCH;
+        END;
+    ---------------------------------------------------------------------------------------------------------
+    
+    DECLARE @STRING_EXTENDER_FIELD_ID BIGINT = NULL
+    
+    ------Find if there are any Record of ItemNumber in String Field Table (EXT01101) from WINDOW_ID above---
+    SELECT
+    	@STRING_EXTENDER_FIELD_ID = Extender_Record_Id
+    FROM 
+    	EXT01101
+    WHERE
+    	Extender_Record_Id = @EXTENDER_RECORD_ID
+    	AND Field_ID = @EXTENDER_FIELD_ID
+    
+    
+    -------------------------UPSERT RECORD-------------------------------
+    IF @STRING_EXTENDER_FIELD_ID IS NULL
+    BEGIN
+        INSERT INTO EXT01101 (Extender_Record_ID,Field_ID,STRGA255)
+    		VALUES(@EXTENDER_RECORD_ID,@EXTENDER_FIELD_ID,@StringValue)
+    END
+    ELSE
+    BEGIN
+    	UPDATE EXT01101 
+    	    SET STRGA255=RTRIM(@StringValue)
+    	WHERE 
+    		Extender_Record_ID=@EXTENDER_RECORD_ID
+    		AND Field_ID=@EXTENDER_FIELD_ID
+    END
+    -------------------------------------------------------------------------
+END</sql></DBStatement><DBStatement isNode="true" key="61" name="CUSTOMER2.[Sales Partner 2] STRING" statementType="standardinsertupdatedelete" storedProcedure="" tableName=""><DBFields isNode="true" key="62" name="Fields"><DatabaseElement enforceUnique="false" isMappable="true" isNode="true" key="65" mandatory="false" name="@AMMEX_GP_EXTERNAL_ID"><DataFormat><ProfileCharacterFormat/></DataFormat></DatabaseElement><DatabaseElement enforceUnique="false" isMappable="true" isNode="true" key="67" mandatory="false" name="@StringValue"><DataFormat><ProfileCharacterFormat/></DataFormat></DatabaseElement></DBFields><sql>DECLARE @AMMEX_GP_EXTERNAL_ID CHAR(51) = TRIM(?),
+		@StringValue CHAR(255) = TRIM(?);
+
+IF @AMMEX_GP_EXTERNAL_ID&lt;&gt;''
+BEGIN
+    ------------------------Find the ID of the FIELD Above---------------
+    DECLARE @EXTENDER_FIELD_ID int = NULL,
+            @FieldName char(31) = 'Sales Partner 2'
+    
+    SELECT 
+    	@EXTENDER_FIELD_ID=Field_ID
+    FROM 
+    	EXT20010 --STORES ALL FIELD DETAILS
+    WHERE 
+    	EXT20010.FIELDNAM=RTRIM(@FieldName)
+    
+    IF @EXTENDER_FIELD_ID IS NULL
+    BEGIN
+        raiserror('Field ID for [Sales Partner 2] is not found.', 16,2)
+    END
+    ---------------------------------------------------------------------
+    
+    /*DECLARE @EXTENDER_RECORD_ID BIGINT = NULL,
+            @EXTENDER_WINDOW_ID char(15) = 'CUSTOMER2'
+    
+    ----------Find if there are any Record of Customer from Source Data in WINDOW_ID above------------------
+    SELECT 
+        @EXTENDER_RECORD_ID = Extender_Record_ID
+    FROM 
+        EXT01100 WITH(NOLOCK) --STORES ALL RECORDS IN EXTENDER TABLE
+    WHERE 
+        Extender_Window_ID = RTRIM(@EXTENDER_WINDOW_ID) 
+    	AND Extender_Key_Values_1 = RTRIM(@AMMEX_GP_EXTERNAL_ID)
+    	
+    IF @EXTENDER_RECORD_ID IS NULL
+    BEGIN
+        INSERT INTO EXT01100 (
+            Extender_Record_ID,
+            Extender_Window_ID,
+            Extender_Key_Values_1,
+            Extender_Key_Values_2,
+            Extender_Key_Values_3,
+            Extender_Key_Values_4,
+            Extender_Key_Values_5,
+            NOTEINDX,
+            MODIFDT,
+            MDFUSRID,
+            CREATDDT,
+            CRUSRId
+        )
+        VALUES(
+            (SELECT MAX(Extender_Record_ID) + 1 FROM EXT01100),                     -- Extender_Record_ID
+            RTRIM(@EXTENDER_WINDOW_ID),                       -- Extender_Window_ID
+            RTRIM(@AMMEX_GP_EXTERNAL_ID),                -- Extender_Key_Values_1
+            '',                              -- Extender_Key_Values_2
+            '',                              -- Extender_Key_Values_3
+            '',                                        -- Extender_Key_Values_4
+            '',                                        -- Extender_Key_Values_5
+            '0.00',                                    -- NOTEINDX
+            DATEADD(d,DATEDIFF(d,0,getdate()),0),      -- MODIFDT
+            'BOOMI',                                      -- MDFUSRID
+            DATEADD(d,DATEDIFF(d,0,getdate()),0),      -- CREATDDT
+            'BOOMI'                                   -- CRUSRId
+        )
+        
+        SELECT 
+            @EXTENDER_RECORD_ID = Extender_Record_ID
+        FROM 
+            EXT01100 WITH(NOLOCK)
+        WHERE 
+            Extender_Window_ID = RTRIM(@EXTENDER_WINDOW_ID) 
+            AND Extender_Key_Values_1 = RTRIM(@AMMEX_GP_EXTERNAL_ID)
+    END	*/
+            
+        DECLARE @EXTENDER_RECORD_ID BIGINT = NULL,
+            @EXTENDER_WINDOW_ID CHAR(15) = 'CUSTOMER2',
+            @USRID CHAR(15) = 'BOOMI',
+            @RetryCount INT = 0,
+            @MaxRetries INT = 3;
+        
+        WHILE @RetryCount &lt; @MaxRetries
+        BEGIN
+            BEGIN TRY
+        
+                SET @EXTENDER_RECORD_ID = NULL;
+        
+                EXEC CREATE_EXTENDER_HEADER 
+                    @EXTENDER_WINDOW_ID,
+                    @AMMEX_GP_EXTERNAL_ID,
+                    '',
+                    '',
+                    '',
+                    '',
+                    @USRID,
+                    @EXTENDER_RECORD_ID OUTPUT;
+        
+                IF @EXTENDER_RECORD_ID IS NULL
+                BEGIN
+                    THROW 50001, 'Extender Record ID is null', 1;
+                END
+        
+                PRINT 'Success - Extender Record ID: ' + CAST(@EXTENDER_RECORD_ID AS VARCHAR);
+        
+                BREAK;
+        
+            END TRY
+            BEGIN CATCH
+        
+                SET @RetryCount += 1;
+        
+                PRINT 'Retry attempt: ' + CAST(@RetryCount AS VARCHAR);
+        
+                IF @RetryCount &gt;= @MaxRetries
+                BEGIN
+                    THROW;
+                END
+        
+                WAITFOR DELAY '00:00:02';
+        
+            END CATCH
+        END
+    ---------------------------------------------------------------------------------------------------------
+    
+    DECLARE @STRING_EXTENDER_FIELD_ID BIGINT = NULL
+    
+    ------Find if there are any Record of ItemNumber in String Field Table (EXT01101) from WINDOW_ID above---
+    SELECT
+    	@STRING_EXTENDER_FIELD_ID = Extender_Record_Id
+    FROM 
+    	EXT01101
+    WHERE
+    	Extender_Record_Id = @EXTENDER_RECORD_ID
+    	AND Field_ID = @EXTENDER_FIELD_ID
+    
+    
+    -------------------------UPSERT RECORD-------------------------------
+    IF @STRING_EXTENDER_FIELD_ID IS NULL
+    BEGIN
+        INSERT INTO EXT01101 (Extender_Record_ID,Field_ID,STRGA255)
+    		VALUES(@EXTENDER_RECORD_ID,@EXTENDER_FIELD_ID,@StringValue)
+    END
+    ELSE
+    BEGIN
+    	UPDATE EXT01101 
+    	    SET STRGA255=RTRIM(@StringValue)
+    	WHERE 
+    		Extender_Record_ID=@EXTENDER_RECORD_ID
+    		AND Field_ID=@EXTENDER_FIELD_ID
+    END
+    -------------------------------------------------------------------------
+END</sql></DBStatement><DBStatement isNode="true" key="63" name="CUSTOMER2.[Sales Partner 3] STRING" statementType="standardinsertupdatedelete" storedProcedure="" tableName=""><DBFields isNode="true" key="64" name="Fields"><DatabaseElement enforceUnique="false" isMappable="true" isNode="true" key="68" mandatory="false" name="@AMMEX_GP_EXTERNAL_ID"><DataFormat><ProfileCharacterFormat/></DataFormat></DatabaseElement><DatabaseElement enforceUnique="false" isMappable="true" isNode="true" key="70" mandatory="false" name="@StringValue"><DataFormat><ProfileCharacterFormat/></DataFormat></DatabaseElement></DBFields><sql>DECLARE @AMMEX_GP_EXTERNAL_ID CHAR(51) = TRIM(?),
+		@StringValue CHAR(255) = TRIM(?);
+
+IF @AMMEX_GP_EXTERNAL_ID&lt;&gt;''
+BEGIN
+    ------------------------Find the ID of the FIELD Above---------------
+    DECLARE @EXTENDER_FIELD_ID int = NULL,
+            @FieldName char(31) = 'Sales Partner 3'
+    
+    SELECT 
+    	@EXTENDER_FIELD_ID=Field_ID
+    FROM 
+    	EXT20010 --STORES ALL FIELD DETAILS
+    WHERE 
+    	EXT20010.FIELDNAM=RTRIM(@FieldName)
+    
+    IF @EXTENDER_FIELD_ID IS NULL
+    BEGIN
+        raiserror('Field ID for [Sales Partner 3] is not found.', 16,2)
+    END
+    ---------------------------------------------------------------------
+    
+    /*DECLARE @EXTENDER_RECORD_ID BIGINT = NULL,
+            @EXTENDER_WINDOW_ID char(15) = 'CUSTOMER2'
+    
+    ----------Find if there are any Record of Customer from Source Data in WINDOW_ID above------------------
+    SELECT 
+        @EXTENDER_RECORD_ID = Extender_Record_ID
+    FROM 
+        EXT01100 WITH(NOLOCK) --STORES ALL RECORDS IN EXTENDER TABLE
+    WHERE 
+        Extender_Window_ID = RTRIM(@EXTENDER_WINDOW_ID) 
+    	AND Extender_Key_Values_1 = RTRIM(@AMMEX_GP_EXTERNAL_ID)
+    	
+    IF @EXTENDER_RECORD_ID IS NULL
+    BEGIN
+        INSERT INTO EXT01100 (
+            Extender_Record_ID,
+            Extender_Window_ID,
+            Extender_Key_Values_1,
+            Extender_Key_Values_2,
+            Extender_Key_Values_3,
+            Extender_Key_Values_4,
+            Extender_Key_Values_5,
+            NOTEINDX,
+            MODIFDT,
+            MDFUSRID,
+            CREATDDT,
+            CRUSRId
+        )
+        VALUES(
+            (SELECT MAX(Extender_Record_ID) + 1 FROM EXT01100),                     -- Extender_Record_ID
+            RTRIM(@EXTENDER_WINDOW_ID),                       -- Extender_Window_ID
+            RTRIM(@AMMEX_GP_EXTERNAL_ID),                -- Extender_Key_Values_1
+            '',                              -- Extender_Key_Values_2
+            '',                              -- Extender_Key_Values_3
+            '',                                        -- Extender_Key_Values_4
+            '',                                        -- Extender_Key_Values_5
+            '0.00',                                    -- NOTEINDX
+            DATEADD(d,DATEDIFF(d,0,getdate()),0),      -- MODIFDT
+            'BOOMI',                                      -- MDFUSRID
+            DATEADD(d,DATEDIFF(d,0,getdate()),0),      -- CREATDDT
+            'BOOMI'                                   -- CRUSRId
+        )
+        
+        SELECT 
+            @EXTENDER_RECORD_ID = Extender_Record_ID
+        FROM 
+            EXT01100 WITH(NOLOCK)
+        WHERE 
+            Extender_Window_ID = RTRIM(@EXTENDER_WINDOW_ID) 
+            AND Extender_Key_Values_1 = RTRIM(@AMMEX_GP_EXTERNAL_ID)
+    END	*/
+    
+    DECLARE @EXTENDER_RECORD_ID BIGINT = NULL,
+        @EXTENDER_WINDOW_ID CHAR(15) = 'CUSTOMER2',
+        @USRID CHAR(15) = 'BOOMI',
+        @RetryCount INT = 0,
+        @MaxRetries INT = 3;
+    
+    WHILE @RetryCount &lt; @MaxRetries
+    BEGIN
+        BEGIN TRY
+    
+            SET @EXTENDER_RECORD_ID = NULL;
+    
+            EXEC CREATE_EXTENDER_HEADER 
+                @EXTENDER_WINDOW_ID,
+                @AMMEX_GP_EXTERNAL_ID,
+                '',
+                '',
+                '',
+                '',
+                @USRID,
+                @EXTENDER_RECORD_ID OUTPUT;
+    
+            IF @EXTENDER_RECORD_ID IS NULL
+            BEGIN
+                THROW 50001, 'Extender Record ID is null', 1;
+            END
+    
+            PRINT 'Success - Extender Record ID: ' + CAST(@EXTENDER_RECORD_ID AS VARCHAR);
+    
+            BREAK;
+    
+        END TRY
+        BEGIN CATCH
+    
+            SET @RetryCount += 1;
+    
+            PRINT 'Retry attempt: ' + CAST(@RetryCount AS VARCHAR);
+    
+            IF @RetryCount &gt;= @MaxRetries
+            BEGIN
+                THROW;
+            END
+    
+            WAITFOR DELAY '00:00:02';
+    
+        END CATCH
+    END
+    ---------------------------------------------------------------------------------------------------------
+    
+    DECLARE @STRING_EXTENDER_FIELD_ID BIGINT = NULL
+    
+    ------Find if there are any Record of ItemNumber in String Field Table (EXT01101) from WINDOW_ID above---
+    SELECT
+    	@STRING_EXTENDER_FIELD_ID = Extender_Record_Id
+    FROM 
+    	EXT01101
+    WHERE
+    	Extender_Record_Id = @EXTENDER_RECORD_ID
+    	AND Field_ID = @EXTENDER_FIELD_ID
+    
+    
+    -------------------------UPSERT RECORD-------------------------------
+    IF @STRING_EXTENDER_FIELD_ID IS NULL
+    BEGIN
+        INSERT INTO EXT01101 (Extender_Record_ID,Field_ID,STRGA255)
+    		VALUES(@EXTENDER_RECORD_ID,@EXTENDER_FIELD_ID,@StringValue)
+    END
+    ELSE
+    BEGIN
+    	UPDATE EXT01101 
+    	    SET STRGA255=RTRIM(@StringValue)
+    	WHERE 
+    		Extender_Record_ID=@EXTENDER_RECORD_ID
+    		AND Field_ID=@EXTENDER_FIELD_ID
+    END
+    -------------------------------------------------------------------------
+END</sql></DBStatement><DBStatement isNode="true" key="71" name="CUSTOMER2.[Sales Partner] PICKLIST" statementType="standardinsertupdatedelete" storedProcedure="" tableName=""><DBFields isNode="true" key="72" name="Fields"><DatabaseElement enforceUnique="false" isMappable="true" isNode="true" key="73" mandatory="false" name="@AMMEX_GP_Extenal_ID__c"><DataFormat><ProfileCharacterFormat/></DataFormat></DatabaseElement><DatabaseElement enforceUnique="false" isMappable="true" isNode="true" key="74" mandatory="false" name="@Picklist_Value"><DataFormat><ProfileCharacterFormat/></DataFormat></DatabaseElement></DBFields><sql>DECLARE @AMMEX_GP_Extenal_ID__c CHAR(51) = TRIM(?),
+		@Picklist_Value CHAR(133) = TRIM(?)
+
+IF @AMMEX_GP_Extenal_ID__c&lt;&gt;''
+BEGIN
+    /*DECLARE @EXTENDER_RECORD_ID BIGINT = NULL,
+            @EXTENDER_WINDOW_ID char(15) = 'CUSTOMER2'
+    
+    ----------Find if there are any Record of Customer from Source Data in WINDOW_ID above------------------
+    SELECT 
+        @EXTENDER_RECORD_ID = Extender_Record_ID
+    FROM 
+        EXT01100 WITH(NOLOCK) --STORES ALL RECORDS IN EXTENDER TABLE
+    WHERE 
+        Extender_Window_ID = RTRIM(@EXTENDER_WINDOW_ID) 
+    	AND Extender_Key_Values_1 = RTRIM(@AMMEX_GP_Extenal_ID__c)
+    	
+    IF @EXTENDER_RECORD_ID IS NULL
+    BEGIN
+        INSERT INTO EXT01100 (
+            Extender_Record_ID,
+            Extender_Window_ID,
+            Extender_Key_Values_1,
+            Extender_Key_Values_2,
+            Extender_Key_Values_3,
+            Extender_Key_Values_4,
+            Extender_Key_Values_5,
+            NOTEINDX,
+            MODIFDT,
+            MDFUSRID,
+            CREATDDT,
+            CRUSRId
+        )
+        VALUES(
+            (SELECT MAX(Extender_Record_ID) + 1 FROM EXT01100),                     -- Extender_Record_ID
+            RTRIM(@EXTENDER_WINDOW_ID),                       -- Extender_Window_ID
+            RTRIM(@AMMEX_GP_Extenal_ID__c),                -- Extender_Key_Values_1
+            '',                              -- Extender_Key_Values_2
+            '',                              -- Extender_Key_Values_3
+            '',                                        -- Extender_Key_Values_4
+            '',                                        -- Extender_Key_Values_5
+            '0.00',                                    -- NOTEINDX
+            DATEADD(d,DATEDIFF(d,0,getdate()),0),      -- MODIFDT
+            'BOOMI',                                      -- MDFUSRID
+            DATEADD(d,DATEDIFF(d,0,getdate()),0),      -- CREATDDT
+            'BOOMI'                                   -- CRUSRId
+        )
+        
+        SELECT 
+            @EXTENDER_RECORD_ID = Extender_Record_ID
+        FROM 
+            EXT01100 WITH(NOLOCK)
+        WHERE 
+            Extender_Window_ID = RTRIM(@EXTENDER_WINDOW_ID) 
+            AND Extender_Key_Values_1 = RTRIM(@AMMEX_GP_Extenal_ID__c)
+    END	*/
+    
+    
+    
+    
+    DECLARE @EXTENDER_RECORD_ID BIGINT = NULL,
+        @EXTENDER_WINDOW_ID CHAR(15) = 'CUSTOMER2',
+        @USRID CHAR(15) = 'BOOMI',
+        @RetryCount INT = 0,
+        @MaxRetries INT = 3;
+    
+    WHILE @RetryCount &lt; @MaxRetries
+    BEGIN
+        BEGIN TRY
+    
+            SET @EXTENDER_RECORD_ID = NULL;
+    
+            EXEC CREATE_EXTENDER_HEADER 
+                @EXTENDER_WINDOW_ID,
+                @AMMEX_GP_Extenal_ID__c,
+                '',
+                '',
+                '',
+                '',
+                @USRID,
+                @EXTENDER_RECORD_ID OUTPUT;
+    
+            IF @EXTENDER_RECORD_ID IS NULL
+            BEGIN
+                THROW 50001, 'Extender Record ID is null', 1;
+            END
+    
+            PRINT 'Success - Extender Record ID: ' + CAST(@EXTENDER_RECORD_ID AS VARCHAR);
+    
+            BREAK;
+    
+        END TRY
+        BEGIN CATCH
+    
+            SET @RetryCount += 1;
+    
+            PRINT 'Retry attempt: ' + CAST(@RetryCount AS VARCHAR);
+    
+            IF @RetryCount &gt;= @MaxRetries
+            BEGIN
+                THROW;
+            END
+    
+            WAITFOR DELAY '00:00:02';
+    
+        END CATCH
+    END
+    ---------------------------------------------------------------------------------------------------------
+    
+    DECLARE @FieldName char(31) = 'Sales Partner',
+        	@EXTENDER_FIELD_ID int = NULL
+    
+    ------------------------Find the ID of the FIELD Above---------------
+    SELECT 
+    	@EXTENDER_FIELD_ID=Field_ID
+    FROM 
+    	EXT20010 --STORES ALL FIELD DETAILS
+    WHERE 
+    	EXT20010.FIELDNAM LIKE '%'+@FieldName+'%'
+    
+    IF @EXTENDER_FIELD_ID IS NULL
+    BEGIN
+        raiserror('Field ID for [Sales Partner] is not found.', 16,2)
+    END
+    ---------------------------------------------------------------------
+    
+    DECLARE @Picklist_List_ID int = NULL
+    
+    ---------------Find the ID of the Picklist Value from Source Data---------------
+    
+    IF @Picklist_Value='' OR @Picklist_Value IS NULL
+    BEGIN
+        SET @Picklist_Value = '(blank)'
+    END
+    
+    SELECT 
+        @Picklist_List_ID=Extender_List_Item_ID
+    FROM 
+    	EXT20021
+    	INNER JOIN EXT20010 ON EXT20021.Extender_List_ID = EXT20010.Extender_List_ID
+    WHERE 
+    	STRNG132 LIKE '%'+@Picklist_Value+'%'
+    	AND EXT20010.Field_ID=@EXTENDER_FIELD_ID
+    
+    IF @Picklist_List_ID IS NULL
+    BEGIN
+        raiserror('[Sales Partner] option is not found in the Picklist', 16,2)
+    END
+    ---------------------------------------------------------------------------------
+    
+    ----------Stored Procedure to UPSERT Picklist in any Extender Table/Window------------
+    EXEC EXTENDER_UPSERT_EXT01103 @EXTENDER_RECORD_ID,@EXTENDER_FIELD_ID,@Picklist_List_ID
+    --------------------------------------------------------------------------------------
+END</sql></DBStatement></DataElements></DatabaseProfile></bns:object></bns:Component>

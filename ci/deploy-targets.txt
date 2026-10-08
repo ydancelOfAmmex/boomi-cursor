@@ -1,0 +1,6 @@
+# Scheduled (and other top-level) processes packaged and deployed by CI.
+# Subprocesses are pushed when they change, then picked up by the parent deploy
+# when that parent's XML references the subprocess component id.
+# Paths are relative to the repository root.
+active-development/process/[DB&gt;XML] (Sched) 855o PO ACK CREATE.xml
+active-development/process/[SF&gt;AMMEX GP] (Sched) Create New Customer in GP.xml

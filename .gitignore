@@ -1,0 +1,7 @@
+.env
+.env.*
+active-development/inventories/
+active-development/feedback/
+active-development/.shasum-shim/
+*.log
+.DS_Store
