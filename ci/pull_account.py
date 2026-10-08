@@ -14,10 +14,13 @@ completed and that component is gone from the account.
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 import re
 import subprocess
 import sys
+import urllib.error
+import urllib.request
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from pathlib import Path
@@ -46,6 +49,9 @@ def xml_attr_text(name: str) -> str:
 
 def safe_filename(name: str) -> str:
     text = xml_attr_text(name)
+    # A raw tab, CR, or other C0 control in the name lands in the sync-state
+    # JSON. jq rejects that string (U+0000–U+001F must be escaped).
+    text = re.sub(r"[\x00-\x1f\x7f]", "_", text)
     for char in '<>:"/\\|?*':
         text = text.replace(char, "_")
     text = text.strip(". ")
@@ -84,6 +90,75 @@ def local_components() -> dict[str, Path]:
         if component_id:
             found[component_id] = path
     return found
+
+
+def read_env(path: Path) -> dict[str, str]:
+    values: dict[str, str] = {}
+    if not path.is_file():
+        return values
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        value = value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in "'\"":
+            value = value[1:-1]
+        values[key] = value
+    return values
+
+
+def check_api() -> None:
+    """Fail with the host and reason before the Boomi script reports HTTP 000."""
+    env = read_env(ROOT / ".env")
+    base = env.get("BOOMI_API_URL", "").rstrip("/")
+    account = env.get("BOOMI_ACCOUNT_ID", "")
+    user = env.get("BOOMI_USERNAME", "")
+    token = env.get("BOOMI_API_TOKEN", "")
+    host = base.split("://", 1)[-1].split("/")[0] if base else "(missing)"
+    print(f"Connecting to Boomi API host {host}")
+    if not base.startswith("https://") or not account or not user or not token:
+        raise SystemExit(
+            "BOOMI_API_URL must be https://api.boomi.com with no path. "
+            f"This run is using host {host}."
+        )
+    url = f"{base}/api/rest/v1/{account}/ComponentMetadata/query"
+    body = json.dumps(
+        {
+            "QueryFilter": {
+                "expression": {
+                    "operator": "and",
+                    "nestedExpression": [
+                        {"operator": "EQUALS", "property": "currentVersion", "argument": ["true"]},
+                        {"operator": "EQUALS", "property": "deleted", "argument": ["false"]},
+                        {"operator": "EQUALS", "property": "type", "argument": ["process"]},
+                    ],
+                }
+            }
+        }
+    ).encode()
+    request = urllib.request.Request(url, data=body, method="POST")
+    credential = base64.b64encode(f"BOOMI_TOKEN.{user}:{token}".encode()).decode()
+    request.add_header("Authorization", "Basic " + credential)
+    request.add_header("Accept", "application/json")
+    request.add_header("Content-Type", "application/json")
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            payload = json.loads(response.read().decode())
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode(errors="replace")[:300]
+        if exc.code == 401:
+            raise SystemExit(
+                "Boomi rejected the API credentials (HTTP 401). "
+                "Check BOOMI_USERNAME and BOOMI_API_TOKEN in the repository secrets."
+            ) from exc
+        raise SystemExit(f"Boomi API returned HTTP {exc.code} for host {host}. {detail}") from exc
+    except urllib.error.URLError as exc:
+        raise SystemExit(
+            f"Could not connect to Boomi API host {host}. {exc.reason}. "
+            "Set the BOOMI_API_URL secret to https://api.boomi.com with no path, quotes, or spaces."
+        ) from exc
+    print(f"Connected. The account has {payload.get('numberOfResults', 'unknown')} current process component(s).")
 
 
 def search_components() -> tuple[list[dict], bool]:
@@ -176,6 +251,7 @@ def main() -> int:
     parser.add_argument("--list-only", action="store_true", help="List the account and exit without downloading")
     args = parser.parse_args()
 
+    check_api()
     records, complete = search_components()
     skipped = [row for row in records if row.get("type") in EXCLUDED_TYPES]
     selected = [row for row in records if row.get("componentId") and row.get("type") not in EXCLUDED_TYPES]

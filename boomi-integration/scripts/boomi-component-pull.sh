@@ -96,6 +96,13 @@ if [[ -z "$BRANCH_ID" && -z "$VERSION" ]]; then
   report_file_branch "$tmpfile" "" "Pull read from"
 fi
 
+# Match ci/pull_account.py safe_filename, minus XML escaping: this input is
+# already raw attribute text. Control characters are replaced so the path is a
+# single filename and a legal sync-state value.
+safe_component_filename() {
+  printf '%s' "$1" | LC_ALL=C tr '\000-\037\177<>:"/\\|?*' '_' | sed 's/^[. ]*//;s/[. ]*$//'
+}
+
 # --- Extract name and type (awk exits after first match — safe on single-line XML) ---
 component_name=$(awk 'match($0, /name="[^"]*"/) { print substr($0, RSTART+6, RLENGTH-7); exit }' "$tmpfile")
 component_type=$(awk 'match($0, /type="[^"]*"/) { print substr($0, RSTART+6, RLENGTH-7); exit }' "$tmpfile")
@@ -108,7 +115,7 @@ echo "Retrieved: '${component_name}' (type: ${component_type})"
 if [[ -n "$TARGET_PATH" ]]; then
   if [[ -d "$TARGET_PATH" ]]; then
     # Target is a directory — auto-generate filename inside it
-    safe_name=$(echo "$component_name" | tr '<>:"/\\|?*' '_' | sed 's/^[. ]*//;s/[. ]*$//')
+    safe_name=$(safe_component_filename "$component_name")
     [[ -z "$safe_name" ]] && safe_name="unnamed_component"
     file_path="${TARGET_PATH%/}/${safe_name}.xml"
   else
@@ -121,7 +128,7 @@ else
   mkdir -p "$local_dir"
 
   # Sanitize filename
-  safe_name=$(echo "$component_name" | tr '<>:"/\\|?*' '_' | sed 's/^[. ]*//;s/[. ]*$//')
+  safe_name=$(safe_component_filename "$component_name")
   [[ -z "$safe_name" ]] && safe_name="unnamed_component"
   # Version-aware filename to avoid overwriting the current version file
   if [[ -n "$VERSION" ]]; then

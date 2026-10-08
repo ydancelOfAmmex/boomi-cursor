@@ -16,9 +16,24 @@ REQUIRED = (
 )
 
 
-def quote(value: str) -> str:
+def clean(value: str) -> str:
+    value = value.strip().strip('"').strip("'").strip()
     if "'" in value or "\n" in value or "\r" in value:
         raise SystemExit("A Boomi credential contains a quote or newline and cannot be written safely.")
+    return value
+
+
+def normalize_api_url(value: str) -> str:
+    value = clean(value).rstrip("/")
+    marker = "/api/rest"
+    if marker in value:
+        value = value.split(marker, 1)[0].rstrip("/")
+    if value and "://" not in value:
+        value = "https://" + value
+    return value
+
+
+def quote(value: str) -> str:
     return "'" + value + "'"
 
 
@@ -36,7 +51,12 @@ def main() -> int:
         print("Refusing to overwrite an existing .env. Pass --force to replace it.", file=sys.stderr)
         return 1
 
-    lines = [f"{name}={quote(os.environ[name])}" for name in required if os.environ.get(name)]
+    values = {name: clean(os.environ[name]) for name in required if os.environ.get(name)}
+    if "BOOMI_API_URL" in values:
+        values["BOOMI_API_URL"] = normalize_api_url(values["BOOMI_API_URL"])
+        host = values["BOOMI_API_URL"].split("://", 1)[-1].split("/")[0]
+        print(f"Boomi API host: {host}")
+    lines = [f"{name}={quote(values[name])}" for name in required if name in values]
     lines.append("BOOMI_VERIFY_SSL=true")
     target.write_text("\n".join(lines) + "\n", encoding="utf-8")
     print(f"Wrote {target} ({len(lines) - 1} credentials, values omitted).")

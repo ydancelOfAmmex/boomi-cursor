@@ -812,9 +812,19 @@ write_sync_state() {
   state_name="$(_sync_state_name "$file_path")"
   local state_file="${sync_dir}/${state_name}.json"
 
-  local json="{\"component_id\":\"${component_id}\",\"file_path\":\"${file_path}\",\"content_hash\":\"${content_hash}\",\"last_sync\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}"
-  [[ -n "$branch_id" ]] && json=$(echo "$json" | jq --arg b "$branch_id" '. + {branch_id: $b}')
-  echo "$json" | jq '.' > "$state_file"
+  # --arg, not string interpolation. A component name can contain a tab, CR,
+  # or other C0 control; pasting the path into a JSON string makes jq fail with
+  # "control characters from U+0000 through U+001F must be escaped".
+  local timestamp
+  timestamp="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  jq -n \
+    --arg component_id "$component_id" \
+    --arg file_path "$file_path" \
+    --arg content_hash "$content_hash" \
+    --arg last_sync "$timestamp" \
+    --arg branch_id "$branch_id" \
+    '{component_id:$component_id, file_path:$file_path, content_hash:$content_hash, last_sync:$last_sync}
+     + (if $branch_id == "" then {} else {branch_id:$branch_id} end)' > "$state_file"
   echo "Sync state: ${state_file}"
 }
 
